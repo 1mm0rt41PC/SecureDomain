@@ -7,3 +7,4 @@ $IP_VPN_ADMIN   = '10.200.0.0/24'
 $domain         = 'earth.lo'
 $domain_netbios = 'earth'
 $LDAP_DN        = 'DC=earth,DC=lo'
+#$LDAP_DN        = ( [ADSI]"LDAP://RootDSE" ).defaultNamingContext.Value

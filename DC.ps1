@@ -8,7 +8,6 @@ Import-Module 'Function_FWRule.ps1'
 $IP_SRV   = $IP_AD
 $ComputerName   = 'AD-SRV01'
 
-
 ###############################################################################
 # AD-SRV01
 Rename-Computer -NewName $ComputerName
@@ -58,11 +57,11 @@ function GPO_reg( $gpoName, $param )
 ###############################################################################
 # Fix pingcastle A-PreWin2000Other
 # DistinguishedName : CN=Accès compatible pré-Windows 2000,CN=Builtin,DC=Earth,DC=lo
-# GroupCategory     : Security
-# GroupScope        : DomainLocal
-# Name              : Accès compatible pré-Windows 2000
-# SamAccountName    : Accès compatible pré-Windows 2000
-# SID               : S-1-5-32-554
+# GroupCategory	 : Security
+# GroupScope		: DomainLocal
+# Name			  : Accès compatible pré-Windows 2000
+# SamAccountName	: Accès compatible pré-Windows 2000
+# SID			   : S-1-5-32-554
 $preWin200 = Get-ADGroup -Filter * | where { $_.SID -eq 'S-1-5-32-554' }
 $preWin200 | get-ADGroupMember | foreach { $preWin200 | Remove-ADGroupMember -Members $_.SamAccountName }
 
@@ -129,11 +128,23 @@ GPO_reg "[SD][Hardening] Network security: Restrict NTLM: Incoming/outgoing NTLM
 	};
 	'HKLM\System\CurrentControlSet\Control\Lsa'=@{
 		'LmCompatibilityLevel'=5;# 2.3.11.7 Ensure 'Network security: LAN Manager authentication level' is set to 'Send NTLMv2 response only. Refuse LM & NTLM'
-	}
+		#'UseMachineId'=1;# Network_security_Allow_Local_System_to_use_computer_identity_for_NTLM PROTECTION AGAINST COERCING/PETITPOTAM. FORCE USAGE OF KERBEROS
+	};
 	## 2.3.11.9 Ensure 'Network security: Minimum session security for NTLM SSP based (including secure RPC) clients' is set to 'Require NTLMv2 session security, Require 128-bit encryption'
-	#      - 'r:HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Lsa\MSV1_0 -> NTLMMinClientSec -> 537395200'
+	#	  - 'r:HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Lsa\MSV1_0 -> NTLMMinClientSec -> 537395200'
 	## 2.3.11.10 Ensure 'Network security: Minimum session security for NTLM SSP based (including secure RPC) servers' is set to 'Require NTLMv2 session security, Require 128-bit encryption'
-	#      - 'r:HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Lsa\MSV1_0 -> NTLMMinServerSec -> 537395200'
+	#	  - 'r:HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Lsa\MSV1_0 -> NTLMMinServerSec -> 537395200'
+	#		'Require NTLMv2 session security'	= '524288' 
+	#		'Require 128-bit encryption'		= '536870912' 
+	#		'Both options checked'				= '537395200'
+	#'HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System\Kerberos\Parameters'=@{
+	#	'SupportedEncryptionTypes'=16;
+	#		#DES_CBC_CRC  = '1'
+	#		#DES_CBC_MD5  = '2'
+	#		#RC4_HMAC_MD5 = '4'
+	#		#AES128_HMAC_SHA1  = '8'
+	#		#AES256_HMAC_SHA1  = '16'
+	#};
 }
 
 GPO_reg "[SD][Hardening] Encryption & sign communications" @{
@@ -494,12 +505,12 @@ FWRule @{
 }
 
 # Block IPv6
-FWRule @{ GpoName='[FW] Block-IPv6'; Action='Block'; Direction='Outbound'; Group='GPO-IPv6'; Protocol=41;    Name='IPv6'; }
-FWRule @{ GpoName='[FW] Block-IPv6'; Action='Block'; Direction='Outbound'; Group='GPO-IPv6'; Protocol=43;    Name='IPv6-Route'; }
-FWRule @{ GpoName='[FW] Block-IPv6'; Action='Block'; Direction='Outbound'; Group='GPO-IPv6'; Protocol=44;    Name='IPv6-Frag'; }
-FWRule @{ GpoName='[FW] Block-IPv6'; Action='Block'; Direction='Outbound'; Group='GPO-IPv6'; Protocol=59;    Name='IPv6-NoNxt'; }
-FWRule @{ GpoName='[FW] Block-IPv6'; Action='Block'; Direction='Outbound'; Group='GPO-IPv6'; Protocol=60;    Name='IPv6-Opts'; }
-FWRule @{ GpoName='[FW] Block-IPv6'; Action='Block'; Direction='Outbound'; Group='GPO-IPv6'; Protocol=58;    Name='ICMPv6'; }
+FWRule @{ GpoName='[FW] Block-IPv6'; Action='Block'; Direction='Outbound'; Group='GPO-IPv6'; Protocol=41;	Name='IPv6'; }
+FWRule @{ GpoName='[FW] Block-IPv6'; Action='Block'; Direction='Outbound'; Group='GPO-IPv6'; Protocol=43;	Name='IPv6-Route'; }
+FWRule @{ GpoName='[FW] Block-IPv6'; Action='Block'; Direction='Outbound'; Group='GPO-IPv6'; Protocol=44;	Name='IPv6-Frag'; }
+FWRule @{ GpoName='[FW] Block-IPv6'; Action='Block'; Direction='Outbound'; Group='GPO-IPv6'; Protocol=59;	Name='IPv6-NoNxt'; }
+FWRule @{ GpoName='[FW] Block-IPv6'; Action='Block'; Direction='Outbound'; Group='GPO-IPv6'; Protocol=60;	Name='IPv6-Opts'; }
+FWRule @{ GpoName='[FW] Block-IPv6'; Action='Block'; Direction='Outbound'; Group='GPO-IPv6'; Protocol=58;	Name='ICMPv6'; }
 FWRule @{ GpoName='[FW] Block-IPv6'; Action='Block'; Direction='Outbound'; Group='GPO-IPv6'; Protocol='UDP'; Name='DHCPv6'; RemotePort=547 }
 # Block LLMNR
 FWRule @{ GpoName='[FW] Block-LLMNR'; Action='Block'; Direction='Outbound'; Group='GPO-LLMNR'; Protocol='UDP'; Name='LLMNR'; RemotePort=5355 }
