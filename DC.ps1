@@ -34,6 +34,40 @@ $Policies= @{
 Set-ADDefaultDomainPasswordPolicy @Policies
 
 
+###############################################################################
+# GPO creator for registry
+function GPO_reg( $gpoName, $param )
+{
+	$gpo = New-GPO -Name $gpoName
+	if( $gpo -eq $null ){
+		$gpo = Get-GPO -Name $gpoName
+	}
+	$param.Keys | foreach {
+		$Key = $_
+		$param[$Key].Keys | foreach {
+			$ValueName = $_
+			$Value = $param[$Key][$_]
+			Write-Host ('Set-GPRegistryValue -Name "{0}" -Key "{1}" -ValueName "{2}" -Value "{3}" -Type DWord' -f $gpoName,$Key,$ValueName,$Value)
+			$gpo | Set-GPRegistryValue -Key $key -ValueName $ValueName -Value $Value -Type DWord
+		}
+	}
+}
+
+
+
+###############################################################################
+# Fix pingcastle A-PreWin2000Other
+# DistinguishedName : CN=Accès compatible pré-Windows 2000,CN=Builtin,DC=Earth,DC=lo
+# GroupCategory     : Security
+# GroupScope        : DomainLocal
+# Name              : Accès compatible pré-Windows 2000
+# SamAccountName    : Accès compatible pré-Windows 2000
+# SID               : S-1-5-32-554
+$preWin200 = Get-ADGroup -Filter * | where { $_.SID -eq 'S-1-5-32-554' }
+$preWin200 | get-ADGroupMember | foreach { $preWin200 | Remove-ADGroupMember -Members $_.SamAccountName }
+
+
+###############################################################################
 # Create OU
 New-ADOrganizationalUnit -Name "AllUsers" -Path "$LDAP_DN"
 New-ADOrganizationalUnit -Name "__DomainAdministrators__" -Path "OU=AllUsers,$LDAP_DN"
@@ -59,7 +93,9 @@ New-ADOrganizationalUnit -Name "IIS-HTTP" -Path "OU=Servers,OU=AllComputers,$LDA
 New-ADOrganizationalUnit -Name "ServerWithJobInBackgroundWithoutOpenPort" -Path "OU=Servers,OU=AllComputers,$LDAP_DN"
 New-ADOrganizationalUnit -Name "TerminalServer" -Path "OU=Servers,OU=AllComputers,$LDAP_DN"
 
-# LAPS
+
+###############################################################################
+# Deploy LAPS
 powershell -exec bypass -nop -Command "iwr https://chocolatey.org/install.ps1 -UseBasicParsing | iex"
 choco install laps --params='/ALL' -y
 Import-module AdmPwd.PS
@@ -71,79 +107,198 @@ New-GPOSchTask -GPOName "[SD][Choco] LAPS" -TaskName "[SD][Choco] LAPS" -TaskTyp
 Set-GPRegistryValue -Name "[SD][Choco] LAPS" -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "AdmPwdEnabled" -Value 1 -Type Dword
 # Do not allow password expiration time longer than required by policy
 Set-GPRegistryValue -Name "[SD][Choco] LAPS" -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "PwdExpirationProtectionEnabled" -Value 1 -Type Dword
-Get-GPO -Name "[SD][Choco] LAPS" | New-GPLink -target "OU=Computers,$LDAP_DN" -LinkEnabled Yes
+Get-GPO -Name "[SD][Choco] LAPS" | New-GPLink -target "OU=AllComputers,$LDAP_DN" -LinkEnabled Yes
 
 #New-GPO -Name "Windows Update"
 #Set-GPRegistryValue -Name "Windows Update" -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "DetectionFrequencyEnabled" -Value 1 -Type DWord
 #Set-GPRegistryValue -Name "Windows Update" -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "De-tectionFrequency" -Value 22 -Type DWord
 
-New-GPO -Name "[SD] Machine Password Rotation"
-Set-GPRegistryValue -Name "[SD] Machine Password Rotation" -Key "HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\Netlogon\Parameters" -ValueName "DisablePasswordChange" -Value 0 -Type DWord
-Set-GPRegistryValue -Name "[SD] Machine Password Rotation" -Key "HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\Netlogon\Parameters" -ValueName "MaximumPasswordAge" -Value 30 -Type DWord
+GPO_reg "[SD][Hardening] Machine Password Rotation" @{
+	'HKLM\System\CurrentControlSet\Services\Netlogon\Parameters'=@{
+		'DisablePasswordChange'=0;
+		'MaximumPasswordAge'=30;
+	}
+}
 
-New-GPO -Name "[SD] LSASS Protection (Mimikatz)"
-Set-GPRegistryValue -Name "[SD] LSASS Protection (Mimikatz)" -Key "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest" -ValueName "UseLogonCredential" -Value 0 -Type DWord
-Set-GPRegistryValue -Name "[SD] LSASS Protection (Mimikatz)" -Key "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest" -ValueName "Negotiate" -Value 0 -Type DWord
-Set-GPRegistryValue -Name "[SD] LSASS Protection (Mimikatz)" -Key "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\LSA" -ValueName "RunAsPPL" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD] LSASS Protection (Mimikatz)" -Key "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\LSA" -ValueName "DisableRestrictedAdmin" -Value 0 -Type DWord
-Set-GPRegistryValue -Name "[SD] LSASS Protection (Mimikatz)" -Key "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\LSA" -ValueName "DisableRestrictedAdminOutboundCreds" -Value 1 -Type DWord
+###################################################################################################
+# NTLM hardening
+GPO_reg "[SD][Hardening] Network security: Restrict NTLM: Incoming/outgoing NTLM traffic" @{
+	'HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0'=@{
+		'RestrictReceivingNTLMTraffic'=2;
+		'RestrictSendingNTLMTraffic'=2;
+	};
+	'HKLM\System\CurrentControlSet\Control\Lsa'=@{
+		'LmCompatibilityLevel'=5;# 2.3.11.7 Ensure 'Network security: LAN Manager authentication level' is set to 'Send NTLMv2 response only. Refuse LM & NTLM'
+	}
+	## 2.3.11.9 Ensure 'Network security: Minimum session security for NTLM SSP based (including secure RPC) clients' is set to 'Require NTLMv2 session security, Require 128-bit encryption'
+	#      - 'r:HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Lsa\MSV1_0 -> NTLMMinClientSec -> 537395200'
+	## 2.3.11.10 Ensure 'Network security: Minimum session security for NTLM SSP based (including secure RPC) servers' is set to 'Require NTLMv2 session security, Require 128-bit encryption'
+	#      - 'r:HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Lsa\MSV1_0 -> NTLMMinServerSec -> 537395200'
+}
 
+GPO_reg "[SD][Hardening] Encryption & sign communications" @{
+	'HKLM\System\CurrentControlSet\Services\Netlogon\Parameters'=@{
+		'RequireSignOrSeal'=1;# Domain_member_Digitally_encrypt_or_sign_secure_channel_data_always
+		'SealSecureChannel'=1;# Domain_member_Digitally_encrypt_secure_channel_data_when_possible
+		'SignSecureChannel'=1;# Domain_member_Digitally_sign_secure_channel_data_when_possible
+	};
+}
+
+
+###################################################################################################
+# UAC hardening
+New-GPO -Name "[SD][Hardening] UAC configuration" | %{
+	# 2.3.17.1 UAC - Ensure 'User Account Control: Admin Approval Mode for the Built-in Administrator account' is set to 'Enabled'
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System" -ValueName "FilterAdministratorToken" -Value 1 -Type DWord
+	# 18.3.1 Ensure 'Apply UAC restrictions to local accounts on network logons' is set to 'Enabled'
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System" -ValueName "LocalAccountTokenFilterPolicy" -Value 1 -Type DWord
+}
+
+###################################################################################################
+# LDAP client
+# 2.3.11.8 Ensure 'Network security: LDAP client signing requirements' is set to 'Negotiate signing' or higher
+New-GPO -Name "[SD][Hardening] LDAP client configuration" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\System\CurrentControlSet\Services\LDAP" -ValueName "LDAPClientIntegrity" -Value 2 -Type DWord
+}
+
+
+###################################################################################################
+# LDAP Server
+GPO_reg "[SD][Hardening] LDAP server configuration" @{
+	'HKLM\System\CurrentControlSet\Services\NTDS\Parameters'=@{
+		'LDAPServerIntegrity'=2;# Domain controller LDAP server signing requirements
+		'LdapEnforceChannelBinding'=2;# 18.3.5 (L1) Ensure 'Extended Protection for LDAP Authentication (Domain Controllers only)' is set to 'Enabled: Enabled, always (recommended)' (DC Only) (Scored)
+	};
+}
+
+###################################################################################################
+GPO_reg "[SD][PasswordPolicy] Prompt user to change password before expiration 1 day before" @{
+	'HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon'=@{
+		'PasswordExpiryWarning'=1;
+	};
+}
+GPO_reg "[SD][Hardening] Auto lock session after 15min" @{
+	'HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System'=@{
+		'InactivityTimeoutSecs'=900;# 2.3.7.3 Interactive logon: Machine inactivity limit (Scored)
+	};
+}
+
+###################################################################################################
+New-GPO -Name "[SD][Hardening] LSASS Protection (Mimikatz)" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest" -ValueName "UseLogonCredential" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest" -ValueName "Negotiate" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\LSA" -ValueName "RunAsPPL" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\LSA" -ValueName "DisableRestrictedAdmin" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\LSA" -ValueName "DisableRestrictedAdminOutboundCreds" -Value 1 -Type DWord
+}
+
+###################################################################################################
 # Block CobaltStrike from using \\evil.kali\tmp$\becon.exe
-New-GPO -Name "[SD] Deny anonymous SMB (Block CobaltStrike from using \\evil.kali\tmp$\becon.exe)"
-Set-GPRegistryValue -Name "[SD] Deny anonymous SMB (Block CobaltStrike from using \\evil.kali\tmp$\becon.exe)" -Key "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\LanmanWorkstation" -ValueName "AllowInsecureGuestAuth" -Value 0 -Type DWord
+New-GPO -Name "[SD][Hardening] Deny anonymous SMB (Block CobaltStrike from using \\evil.kali\tmp$\becon.exe)" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\LanmanWorkstation" -ValueName "AllowInsecureGuestAuth" -Value 0 -Type DWord
+}
 
+###################################################################################################
 # Harden Wifi
-New-GPO -Name "[SD] WIFI-Protection"
-Set-GPRegistryValue -Name "[SD] WIFI-Protection" -Key "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\System" -ValueName "DontDisplayNetworkSelectionUI" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD] WIFI-Protection" -Key "HKEY_LOCAL_MACHINE\Software\Microsoft\PolicyManager\default\WiFi\AllowAutoConnectToWiFiSenseHotspots" -ValueName "value" -Value 0 -Type DWord
+New-GPO -Name "[SD][Hardening] WIFI-Protection" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\System" -ValueName "DontDisplayNetworkSelectionUI" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Microsoft\PolicyManager\default\WiFi\AllowAutoConnectToWiFiSenseHotspots" -ValueName "value" -Value 0 -Type DWord
+}
 
+###################################################################################################
+# Disable print spooler
+New-GPO -Name "[SD][Hardening] Disable print spooler" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\Spooler" -ValueName "Start" -Value 4 -Type DWord
+}
+
+###################################################################################################
 # LogSystem
-New-GPO -Name "[SD] LogSystem"
-Set-GPRegistryValue -Name "[SD] LogSystem" -Key "HKLM\Software\Policies\Microsoft\Windows\PowerShell\ModuleLogging" -ValueName "EnableModuleLogging" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD] LogSystem" -Key "HKCU\Software\Policies\Microsoft\Windows\PowerShell\Transcription" -ValueName "EnableTranscripting" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD] LogSystem" -Key "HKCU\Software\Policies\Microsoft\Windows\PowerShell\Transcription" -ValueName "EnableInvocationHeader" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD] LogSystem" -Key "HKCU\Software\Policies\Microsoft\Windows\PowerShell\Transcription" -ValueName "OutputDirectory" -Value "C:\Windows\Powershell.log" -Type ExpandString
-Set-GPRegistryValue -Name "[SD] LogSystem" -Key "HKCU\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -ValueName "EnableScriptBlockLogging" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD] LogSystem" -Key "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Channels\Microsoft-Windows-Dhcp-Client/Operational" -ValueName "Enabled" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD] LogSystem" -Key "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Channels\Microsoft-Windows-Dhcpv6-Client/Operational" -ValueName "Enabled" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD] LogSystem" -Key "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Channels\Microsoft-Windows-DNS-Client/Operational" -ValueName "Enabled" -Value 1 -Type DWord
+New-GPO -Name "[SD] LogSystem" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\PowerShell\ModuleLogging" -ValueName "EnableModuleLogging" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKCU\Software\Policies\Microsoft\Windows\PowerShell\Transcription" -ValueName "EnableTranscripting" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKCU\Software\Policies\Microsoft\Windows\PowerShell\Transcription" -ValueName "EnableInvocationHeader" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKCU\Software\Policies\Microsoft\Windows\PowerShell\Transcription" -ValueName "OutputDirectory" -Value "C:\Windows\Powershell.log" -Type ExpandString
+	$_ | Set-GPRegistryValue -Key "HKCU\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" -ValueName "EnableScriptBlockLogging" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Channels\Microsoft-Windows-Dhcp-Client/Operational" -ValueName "Enabled" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Channels\Microsoft-Windows-Dhcpv6-Client/Operational" -ValueName "Enabled" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Channels\Microsoft-Windows-DNS-Client/Operational" -ValueName "Enabled" -Value 1 -Type DWord
+}
 
+###################################################################################################
 # RDP hardening
-New-GPO -Name "[SD][Hardening] RDP"
-Set-GPRegistryValue -Name "[SD][Hardening] RDP" -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -ValueName "KeepAliveInterval" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] RDP" -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -ValueName "DeleteTempDirsOnExit" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] RDP" -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -ValueName "SecurityLayer" -Value 2 -Type DWord
-# Require user authentication for remote connections by using Network Level Authentication
-Set-GPRegistryValue -Name "[SD][Hardening] RDP" -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -ValueName "UserAuthentication" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] RDP" -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -ValueName "MaxIdleTime" -Value 900000 -Type DWord #15min
-Set-GPRegistryValue -Name "[SD][Hardening] RDP" -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -ValueName "MaxDisconnectionTime" -Value 900000 -Type DWord #15min
-Set-GPRegistryValue -Name "[SD][Hardening] RDP" -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -ValueName "RemoteAppLogoffTimeLimit" -Value 300000 -Type DWord #5min
-# Require secure RPC communication
-Set-GPRegistryValue -Name "[SD][Hardening] RDP" -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -ValueName "fEncryptRPCTraffic" -Value 1 -Type DWord
+GPO_reg "[SD][Hardening] RDP server configuration" @{
+	'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'=@{
+		'KeepAliveInterval'=1;
+		# 18.9.59.3.11.1 (L1) Ensure 'Do not delete temp folders upon exit' is set to 'Disabled' (Scored)
+		'DeleteTempDirsOnExit'=1;
+		# 18.9.59.3.9.3 (L1) Ensure 'Require use of specific security layer for remote (RDP) connections' is set to 'Enabled: SSL' (Scored)
+		'SecurityLayer'=2;
+		# Require user authentication for remote connections by using Network Level Authentication
+		'UserAuthentication'=1;
+		'MaxIdleTime'=900000;
+		# 18.9.59.3.10.2 Ensure 'Set time limit for disconnected sessions' is set to 'Enabled: 15 minute'
+		'MaxDisconnectionTime'=900000;
+		'RemoteAppLogoffTimeLimit'=300000;
+		# Require secure RPC communication
+		'fEncryptRPCTraffic'=1;
+		# 18.9.59.3.9.5 (L1) Ensure 'Set client connection encryption level' is set to 'Enabled: High Level' (Scored)
+		'MinEncryptionLevel'=3;
+	};	
+	'HKLM\System\CurrentControlSet\Control\Lsa'=@{
+		# Network_access_Do_not_allow_storage_of_passwords_and_credentials_for_network_authentication
+		'DisableDomainCreds'=1;
+	};
+}
 
-# FileServer
-New-GPO -Name "[SD][Hardening] FileServer"
-Set-GPRegistryValue -Name "[SD][Hardening] FileServer" -Key "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" -ValueName "SMB1" -Value 0 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] FileServer" -Key "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" -ValueName "EnableSecuritySignature" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] FileServer" -Key "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" -ValueName "RequireSecuritySignature" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] FileServer" -Key "HKLM\System\CurrentControlSet\Services\Rdr\Parameters" -ValueName "EnableSecuritySignature" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] FileServer" -Key "HKLM\System\CurrentControlSet\Services\Rdr\Parameters" -ValueName "RequireSecuritySignature" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] FileServer" -Key "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" -ValueName "AutoShareWks" -Value 0 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] FileServer" -Key "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" -ValueName "AutoShareServer" -Value 0 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] FileServer" -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\LanmanWorkstation" -ValueName "AllowInsecureGuestAuth" -Value 0 -Type DWord
+###################################################################################################
+# SMB server - FileServer
+GPO_reg "[SD][Hardening] SMB server - FileServer configuration" @{
+	'HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters'=@{
+		'SMB1'=0;
+		'EnableSecuritySignature'=1;
+		# 2.3.9.2 Ensure 'Microsoft network server: Digitally sign communications (always)' is set to 'Enabled'
+		'RequireSecuritySignature'=1;
+		'AutoShareWks'=0;
+		'AutoShareServer'=0;
+		# Microsoft_network_server_Amount_of_idle_time_required_before_suspending_session
+		'AutoDisconnect'=60;
+		# Network_access_Shares_that_can_be_accessed_anonymously
+		'RestrictNullSessAccess'=1;
+	};
+	'HKLM\System\CurrentControlSet\Services\Rdr\Parameters'=@{
+		'EnableSecuritySignature'=1;
+		'RequireSecuritySignature'=1;
+	};
+	'HKLM\SOFTWARE\Policies\Microsoft\Windows\LanmanWorkstation'=@{
+		'AllowInsecureGuestAuth'=0;
+	}
+}
 
 
-New-GPO -Name "[SD][Hardening] Bitlocker"
-Set-GPRegistryValue -Name "[SD][Hardening] Bitlocker" -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "ActiveDirectoryBackup" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] Bitlocker" -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "RequireActiveDirectoryBackup" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] Bitlocker" -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "ActiveDirectoryInfoToStore" -Value 1 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] Bitlocker" -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "EncryptionMethodWithXtsOs" -Value 7 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] Bitlocker" -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "EncryptionMethodWithXtsFdv" -Value 7 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] Bitlocker" -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "EncryptionMethodWithXtsRdv" -Value 7 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] Bitlocker" -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "EncryptionMethodNoDiffuser" -Value 4 -Type DWord
-Set-GPRegistryValue -Name "[SD][Hardening] Bitlocker" -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "EncryptionMethod" -Value 2 -Type DWord
+###################################################################################################
+# SMB client
+New-GPO -Name "[SD][Hardening] SMB client configuration" | %{
+	# 2.3.8.2 Ensure 'Microsoft network client: Digitally sign communications (if server agrees)' is set to 'Enabled'
+	$_ | Set-GPRegistryValue -Key "HKLM\System\CurrentControlSet\Services\LanmanWorkstation\Parameters" -ValueName "EnableSecuritySignature" -Value 1 -Type DWord
+	# Microsoft_network_client_Digitally_sign_communications_always
+	$_ | Set-GPRegistryValue -Key "HKLM\System\CurrentControlSet\Services\LanmanWorkstation\Parameters" -ValueName "RequireSecuritySignature" -Value 1 -Type DWord
+	# Microsoft_network_client_Send_unencrypted_password_to_third_party_SMB_servers
+	$_ | Set-GPRegistryValue -Key "HKLM\System\CurrentControlSet\Services\LanmanWorkstation\Parameters" -ValueName "EnablePlainTextPassword" -Value 0 -Type DWord
+}
 
+###################################################################################################
+New-GPO -Name "[SD][Hardening] Bitlocker" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "ActiveDirectoryBackup" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "RequireActiveDirectoryBackup" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "ActiveDirectoryInfoToStore" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "EncryptionMethodWithXtsOs" -Value 7 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "EncryptionMethodWithXtsFdv" -Value 7 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "EncryptionMethodWithXtsRdv" -Value 7 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "EncryptionMethodNoDiffuser" -Value 4 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "EncryptionMethod" -Value 2 -Type DWord
+}
 
+###################################################################################################
 # Software library
 New-GPOSchTask -GPOName "[SD][Choco] Upgrade all" -TaskName "[SD][Choco] Upgrade all" -TaskType Task -StartEveryDayAt 9 -Command 'powershell.exe' -CommandArguments @'
 -exec bypass -nop -Command "if(-not [System.IO.File]::Exists('C:\ProgramData\chocolatey\bin\choco.exe')){ iwr https://chocolatey.org/install.ps1 -UseBasicParsing | iex ; gpupdate /force ; } ; C:\ProgramData\chocolatey\bin\choco.exe upgrade all -y"
@@ -168,11 +323,22 @@ Set-GPRegistryValue -Name "[SD][Choco] bginfo - SetWallpaper" -Key "HKCU\Softwar
 New-GPOSchTask -GPOName "[SD][Hardening] Block psexec" -TaskName "[SD][Choco] Block psexec" -TaskType ImmediateTask -Command 'powershell.exe' -CommandArguments @'
 -exec bypass -nop -Command "$tmp=(sc.exe sdshow scmanager).split('`r`n')[1].split(':')[1]; if( -not $tmp.Contains('(D;;GA;;;NU)') -and -not $tmp.Contains('(D;;KA;;;NU)') ){ sc.exe sdset scmanager ('D:(D;;GA;;;NU){0}' -f $tmp) ; }"
 '@
-New-GPOSchTask -GPOName "[SD][Hardening] Block PetitPotam" -TaskName "[SD][Choco] Block PetitPotam" -TaskType ImmediateTask -Command 'powershell.exe' -CommandArguments '-exec bypass -nop -enc JAByAHIAIAA9ACAAKABuAGUAdABzAGgAIAByAHAAYwAgAGYAaQBsAHQAZQByACAAcwBoAG8AdwAgAGYAaQBsAHQAZQByACkALgBSAGUAcABsAGEAYwBlACgAJwAgACcALAAnACcAKQAgADsADQAKAGkAZgAoACAALQBuAG8AdAAgACgAJAByAHIAIAAtAEwAaQBrAGUAIAAiACoAYwA2ADgAMQBkADQAOAA4ACoAIgAgAC0ATwByACAAJAByAHIAIAAtAEwAaQBrAGUAIAAiACoAZABmADEAOQA0ADEAYwA1ACoAIgApACAAKQB7AA0ACgBAACcADQAKAHIAcABjAA0ACgBmAGkAbAB0AGUAcgANAAoAYQBkAGQAIAByAHUAbABlACAAbABhAHkAZQByAD0AdQBtACAAYQBjAHQAaQBvAG4AdAB5AHAAZQA9AHAAZQByAG0AaQB0AA0ACgBhAGQAZAAgAGMAbwBuAGQAaQB0AGkAbwBuACAAZgBpAGUAbABkAD0AaQBmAF8AdQB1AGkAZAAgAG0AYQB0AGMAaAB0AHkAcABlAD0AZQBxAHUAYQBsACAAZABhAHQAYQA9AGMANgA4ADEAZAA0ADgAOAAtAGQAOAA1ADAALQAxADEAZAAwAC0AOABjADUAMgAtADAAMABjADAANABmAGQAOQAwAGYANwBlAA0ACgBhAGQAZAAgAGMAbwBuAGQAaQB0AGkAbwBuACAAZgBpAGUAbABkAD0AcgBlAG0AbwB0AGUAXwB1AHMAZQByAF8AdABvAGsAZQBuACAAbQBhAHQAYwBoAHQAeQBwAGUAPQBlAHEAdQBhAGwAIABkAGEAdABhAD0ARAA6ACgAQQA7ADsAQwBDADsAOwA7AEQAQQApAA0ACgBhAGQAZAAgAGYAaQBsAHQAZQByAA0ACgBhAGQAZAAgAHIAdQBsAGUAIABsAGEAeQBlAHIAPQB1AG0AIABhAGMAdABpAG8AbgB0AHkAcABlAD0AYgBsAG8AYwBrAA0ACgBhAGQAZAAgAGMAbwBuAGQAaQB0AGkAbwBuACAAZgBpAGUAbABkAD0AaQBmAF8AdQB1AGkAZAAgAG0AYQB0AGMAaAB0AHkAcABlAD0AZQBxAHUAYQBsACAAZABhAHQAYQA9AGMANgA4ADEAZAA0ADgAOAAtAGQAOAA1ADAALQAxADEAZAAwAC0AOABjADUAMgAtADAAMABjADAANABmAGQAOQAwAGYANwBlAA0ACgBhAGQAZAAgAGYAaQBsAHQAZQByAA0ACgBhAGQAZAAgAHIAdQBsAGUAIABsAGEAeQBlAHIAPQB1AG0AIABhAGMAdABpAG8AbgB0AHkAcABlAD0AcABlAHIAbQBpAHQADQAKAGEAZABkACAAYwBvAG4AZABpAHQAaQBvAG4AIABmAGkAZQBsAGQAPQBpAGYAXwB1AHUAaQBkACAAbQBhAHQAYwBoAHQAeQBwAGUAPQBlAHEAdQBhAGwAIABkAGEAdABhAD0AZABmADEAOQA0ADEAYwA1AC0AZgBlADgAOQAtADQAZQA3ADkALQBiAGYAMQAwAC0ANAA2ADMANgA1ADcAYQBjAGYANAA0AGQADQAKAGEAZABkACAAYwBvAG4AZABpAHQAaQBvAG4AIABmAGkAZQBsAGQAPQByAGUAbQBvAHQAZQBfAHUAcwBlAHIAXwB0AG8AawBlAG4AIABtAGEAdABjAGgAdAB5AHAAZQA9AGUAcQB1AGEAbAAgAGQAYQB0AGEAPQBEADoAKABBADsAOwBDAEMAOwA7ADsARABBACkADQAKAGEAZABkACAAZgBpAGwAdABlAHIADQAKAGEAZABkACAAcgB1AGwAZQAgAGwAYQB5AGUAcgA9AHUAbQAgAGEAYwB0AGkAbwBuAHQAeQBwAGUAPQBiAGwAbwBjAGsADQAKAGEAZABkACAAYwBvAG4AZABpAHQAaQBvAG4AIABmAGkAZQBsAGQAPQBpAGYAXwB1AHUAaQBkACAAbQBhAHQAYwBoAHQAeQBwAGUAPQBlAHEAdQBhAGwAIABkAGEAdABhAD0AZABmADEAOQA0ADEAYwA1AC0AZgBlADgAOQAtADQAZQA3ADkALQBiAGYAMQAwAC0ANAA2ADMANgA1ADcAYQBjAGYANAA0AGQADQAKAGEAZABkACAAZgBpAGwAdABlAHIADQAKAHEAdQBpAHQADQAKACcAQAAgAHwAIABPAHUAdAAtAEYAaQBsAGUAIAAtAEUAbgBjAG8AZABpAG4AZwAgAEEAUwBDAEkASQAgAEMAOgBcAFcAaQBuAGQAbwB3AHMAXABUAGUAbQBwAFwAcgByAC4AdAB4AHQADQAKAG4AZQB0AHMAaAAgAC0AZgAgAEMAOgBcAFcAaQBuAGQAbwB3AHMAXABUAGUAbQBwAFwAcgByAC4AdAB4AHQADQAKAHcAcgBpAHQAZQAtAEgAbwBzAHQAIAAnAFAAYQB0AGMAaABpAG4AZwAnAA0ACgB9AA0ACgB3AHIAaQB0AGUALQBIAG8AcwB0ACAAJwBQAGEAdABjAGgAZQBkACcA'
-
 New-GPOSchTask -GPOName "[SD][Hardening] Remove Administrator home folder" -TaskName "[SD][Hardening] Remove Administrator home folder" -TaskType Task -StartEveryDayAt 9 -Command 'powershell.exe' -CommandArguments @'
 -exec bypass -nop -Command "if( [string]::IsNullOrEmpty( $(query user | findstr /I admini) ) ){ Get-ChildItem C:\Users\Administrat* | Remove-Item -Force -Recurse -verbose ; } ; Get-Item 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\S-1-5-21*' | foreach { if( -not (Test-Path -Path $_.GetValue('ProfileImagePath')) ){ reg.exe DELETE $_.Name /f ; } }"
 '@
+New-GPOSchTask -GPOName "[SD][Hardening] Reset ACL on all computers to avoid weak ACL" -TaskName "[SD][Hardening] Reset ACL on all computers to avoid weak ACL" -TaskType Task -StartEveryDayAt 9 -Command 'powershell.exe' -CommandArguments '-exec bypass -nop -Command "dsquery computer | foreach { DSACLS $_ /resetDefaultDACL | Out-Null }"'
+
+
+
+###############################################################################
+# CVE
+New-GPO -Name "[SD][CVE] Fix-exploit-kerberos-samaccountname-spoofing #CVE-2021-42287 #CVE-2021-42278" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\System\CurrentControlSet\Services\Kdc" -ValueName "PacRequestorEnforcement" -Value 2 -Type DWord
+}
+#To find any computer accounts that have a invalid SamAccountName property use this query
+# Get-ADComputer -Filter { samAccountName -notlike "*$" }
+
+New-GPOSchTask -GPOName "[SD][CVE] Block PetitPotam" -TaskName "[SD][CVE] Block PetitPotam" -TaskType ImmediateTask -Command 'powershell.exe' -CommandArguments '-exec bypass -nop -enc JAByAHIAIAA9ACAAKABuAGUAdABzAGgAIAByAHAAYwAgAGYAaQBsAHQAZQByACAAcwBoAG8AdwAgAGYAaQBsAHQAZQByACkALgBSAGUAcABsAGEAYwBlACgAJwAgACcALAAnACcAKQAgADsADQAKAGkAZgAoACAALQBuAG8AdAAgACgAJAByAHIAIAAtAEwAaQBrAGUAIAAiACoAYwA2ADgAMQBkADQAOAA4ACoAIgAgAC0ATwByACAAJAByAHIAIAAtAEwAaQBrAGUAIAAiACoAZABmADEAOQA0ADEAYwA1ACoAIgApACAAKQB7AA0ACgBAACcADQAKAHIAcABjAA0ACgBmAGkAbAB0AGUAcgANAAoAYQBkAGQAIAByAHUAbABlACAAbABhAHkAZQByAD0AdQBtACAAYQBjAHQAaQBvAG4AdAB5AHAAZQA9AHAAZQByAG0AaQB0AA0ACgBhAGQAZAAgAGMAbwBuAGQAaQB0AGkAbwBuACAAZgBpAGUAbABkAD0AaQBmAF8AdQB1AGkAZAAgAG0AYQB0AGMAaAB0AHkAcABlAD0AZQBxAHUAYQBsACAAZABhAHQAYQA9AGMANgA4ADEAZAA0ADgAOAAtAGQAOAA1ADAALQAxADEAZAAwAC0AOABjADUAMgAtADAAMABjADAANABmAGQAOQAwAGYANwBlAA0ACgBhAGQAZAAgAGMAbwBuAGQAaQB0AGkAbwBuACAAZgBpAGUAbABkAD0AcgBlAG0AbwB0AGUAXwB1AHMAZQByAF8AdABvAGsAZQBuACAAbQBhAHQAYwBoAHQAeQBwAGUAPQBlAHEAdQBhAGwAIABkAGEAdABhAD0ARAA6ACgAQQA7ADsAQwBDADsAOwA7AEQAQQApAA0ACgBhAGQAZAAgAGYAaQBsAHQAZQByAA0ACgBhAGQAZAAgAHIAdQBsAGUAIABsAGEAeQBlAHIAPQB1AG0AIABhAGMAdABpAG8AbgB0AHkAcABlAD0AYgBsAG8AYwBrAA0ACgBhAGQAZAAgAGMAbwBuAGQAaQB0AGkAbwBuACAAZgBpAGUAbABkAD0AaQBmAF8AdQB1AGkAZAAgAG0AYQB0AGMAaAB0AHkAcABlAD0AZQBxAHUAYQBsACAAZABhAHQAYQA9AGMANgA4ADEAZAA0ADgAOAAtAGQAOAA1ADAALQAxADEAZAAwAC0AOABjADUAMgAtADAAMABjADAANABmAGQAOQAwAGYANwBlAA0ACgBhAGQAZAAgAGYAaQBsAHQAZQByAA0ACgBhAGQAZAAgAHIAdQBsAGUAIABsAGEAeQBlAHIAPQB1AG0AIABhAGMAdABpAG8AbgB0AHkAcABlAD0AcABlAHIAbQBpAHQADQAKAGEAZABkACAAYwBvAG4AZABpAHQAaQBvAG4AIABmAGkAZQBsAGQAPQBpAGYAXwB1AHUAaQBkACAAbQBhAHQAYwBoAHQAeQBwAGUAPQBlAHEAdQBhAGwAIABkAGEAdABhAD0AZABmADEAOQA0ADEAYwA1AC0AZgBlADgAOQAtADQAZQA3ADkALQBiAGYAMQAwAC0ANAA2ADMANgA1ADcAYQBjAGYANAA0AGQADQAKAGEAZABkACAAYwBvAG4AZABpAHQAaQBvAG4AIABmAGkAZQBsAGQAPQByAGUAbQBvAHQAZQBfAHUAcwBlAHIAXwB0AG8AawBlAG4AIABtAGEAdABjAGgAdAB5AHAAZQA9AGUAcQB1AGEAbAAgAGQAYQB0AGEAPQBEADoAKABBADsAOwBDAEMAOwA7ADsARABBACkADQAKAGEAZABkACAAZgBpAGwAdABlAHIADQAKAGEAZABkACAAcgB1AGwAZQAgAGwAYQB5AGUAcgA9AHUAbQAgAGEAYwB0AGkAbwBuAHQAeQBwAGUAPQBiAGwAbwBjAGsADQAKAGEAZABkACAAYwBvAG4AZABpAHQAaQBvAG4AIABmAGkAZQBsAGQAPQBpAGYAXwB1AHUAaQBkACAAbQBhAHQAYwBoAHQAeQBwAGUAPQBlAHEAdQBhAGwAIABkAGEAdABhAD0AZABmADEAOQA0ADEAYwA1AC0AZgBlADgAOQAtADQAZQA3ADkALQBiAGYAMQAwAC0ANAA2ADMANgA1ADcAYQBjAGYANAA0AGQADQAKAGEAZABkACAAZgBpAGwAdABlAHIADQAKAHEAdQBpAHQADQAKACcAQAAgAHwAIABPAHUAdAAtAEYAaQBsAGUAIAAtAEUAbgBjAG8AZABpAG4AZwAgAEEAUwBDAEkASQAgAEMAOgBcAFcAaQBuAGQAbwB3AHMAXABUAGUAbQBwAFwAcgByAC4AdAB4AHQADQAKAG4AZQB0AHMAaAAgAC0AZgAgAEMAOgBcAFcAaQBuAGQAbwB3AHMAXABUAGUAbQBwAFwAcgByAC4AdAB4AHQADQAKAHcAcgBpAHQAZQAtAEgAbwBzAHQAIAAnAFAAYQB0AGMAaABpAG4AZwAnAA0ACgB9AA0ACgB3AHIAaQB0AGUALQBIAG8AcwB0ACAAJwBQAGEAdABjAGgAZQBkACcA'
 
 
 ###############################################################################
@@ -182,9 +348,9 @@ New-GPOSchTask -GPOName "[SD][GPO] FW-ClearlocalRuleThatDoesntContain[SD]" -Task
 '@
 
 # Enable localfirewall
-New-GPOSchTask -GPOName "[SD][FW] Enable-and-Log-ALLOW-VPN-ADMIN" -TaskName "[SD][FW] Enable-and-Log-ALLOW-VPN-ADMIN" -TaskType ImmediateTask-Command 'cmd.exe' -CommandArguments 'mkdir %windir%\system32\logfiles\firewall 2>NUL'
-$GpoSessionName = Open-NetGPO –PolicyStore ("{0}\[SD] [FW] Enable-and-Log-ALLOW-VPN-ADMIN" -f $env:USERDNSDOMAIN)
-Set-NetFirewallProfile -GPOSession $GpoSessionName -PolicyStore "[SD] [FW] Enable-and-Log-ALLOW-VPN-ADMIN" -All -Enabled True -NotifyOnListen False -DefaultOutboundAction Allow -DefaultInboundAction Block -AllowInboundRules True -AllowLocalFirewallRules False -AllowLocalIPsecRules True -AllowUnicastResponseToMulticast True -LogAllowed True -LogBlocked True -LogIgnored False -LogFileName "%windir%\system32\logfiles\firewall\pfirewall.log" -LogMaxSizeKilobytes 32767
+New-GPOSchTask -GPOName "[SD][FW] Enable-and-Log-ALLOW-VPN-ADMIN" -TaskName "[SD][FW] Enable-and-Log-ALLOW-VPN-ADMIN" -TaskType ImmediateTask -Command 'cmd.exe' -CommandArguments '/C "mkdir %windir%\system32\logfiles\firewall 2>NUL"'
+$GpoSessionName = Open-NetGPO –PolicyStore ("{0}\[SD][FW] Enable-and-Log-ALLOW-VPN-ADMIN" -f $env:USERDNSDOMAIN)
+Set-NetFirewallProfile -GPOSession $GpoSessionName -PolicyStore "[SD][FW] Enable-and-Log-ALLOW-VPN-ADMIN" -All -Enabled True -NotifyOnListen False -DefaultOutboundAction Allow -DefaultInboundAction Block -AllowInboundRules True -AllowLocalFirewallRules False -AllowLocalIPsecRules True -AllowUnicastResponseToMulticast True -LogAllowed True -LogBlocked True -LogIgnored False -LogFileName "%windir%\system32\logfiles\firewall\pfirewall.log" -LogMaxSizeKilobytes 32767
 Save-NetGPO -GPOSession $GpoSessionName
 FWRule @{
 	GpoName='[FW] Enable-and-Log-ALLOW-VPN-ADMIN'; Action='Allow'; Direction='Inbound'; Name='VPN-AllowAll';
@@ -371,4 +537,4 @@ New-GPO -Name "[SD] WindowsUpdate for servers"
 # rsop.msc
 
 
-
+dsquery computer | foreach { DSACLS $_ /resetDefaultDACL > NUL }

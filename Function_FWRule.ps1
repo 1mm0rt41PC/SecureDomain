@@ -1,13 +1,13 @@
 function FWRule( $param )
 {
 	$GpoName_raw=$param['GpoName']
-	$GpoName = "[SD] {0}" -f $param['GpoName']
+	$GpoName = ("[SD] {0}" -f $param['GpoName']) -replace '\] \[', ']['
 	$param.remove('GpoName')
 	New-GPO -Name $GpoName -ErrorAction SilentlyContinue
 	$GpoSessionName = Open-NetGPO –PolicyStore ("{0}\{1}" -f $env:USERDNSDOMAIN,$GpoName)
 	$param['GPOSession']  = $GpoSessionName;
 	$param['PolicyStore'] = $GpoName;
-	$param['DisplayName'] = "[GPO] {0}" -f $GpoName_raw;
+	$param['DisplayName'] = ("[GPO] {0}" -f $GpoName_raw) -Replace '\] \[', '][';
 	$param.remove('Name')
 	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue @param
 	Save-NetGPO -GPOSession $GpoSessionName
