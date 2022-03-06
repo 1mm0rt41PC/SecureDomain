@@ -92,6 +92,8 @@ New-ADOrganizationalUnit -Name "IIS-HTTP" -Path "OU=Servers,OU=AllComputers,$LDA
 New-ADOrganizationalUnit -Name "ServerWithJobInBackgroundWithoutOpenPort" -Path "OU=Servers,OU=AllComputers,$LDAP_DN"
 New-ADOrganizationalUnit -Name "TerminalServer" -Path "OU=Servers,OU=AllComputers,$LDAP_DN"
 
+redircmp OU=AllComputers,$LDAP_DN
+redirusr OU=AllUsers,$LDAP_DN
 
 ###############################################################################
 # Deploy LAPS
