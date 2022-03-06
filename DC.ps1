@@ -258,6 +258,8 @@ GPO_reg "[SD][Hardening] RDP server configuration" @{
 		'fEncryptRPCTraffic'=1;
 		# 18.9.59.3.9.5 (L1) Ensure 'Set client connection encryption level' is set to 'Enabled: High Level' (Scored)
 		'MinEncryptionLevel'=3;
+		# Client applications which use CredSSP will not be able to fall back to the insecure versions and services using CredSSP will not accept unpatched clients.
+		'AllowEncryptionOracle'=0;
 	};	
 	'HKLM\System\CurrentControlSet\Control\Lsa'=@{
 		# Network_access_Do_not_allow_storage_of_passwords_and_credentials_for_network_authentication
