@@ -25,3 +25,4 @@ $param = @{
 }
 Install-Adcs-CertificationAuthority @param
 
+Add-CATemplate -Name CodeSigning
