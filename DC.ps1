@@ -108,6 +108,10 @@ New-GPOSchTask -GPOName "[SD][Choco] LAPS" -TaskName "[SD][Choco] LAPS" -TaskTyp
 Set-GPRegistryValue -Name "[SD][Choco] LAPS" -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "AdmPwdEnabled" -Value 1 -Type Dword
 # Do not allow password expiration time longer than required by policy
 Set-GPRegistryValue -Name "[SD][Choco] LAPS" -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "PwdExpirationProtectionEnabled" -Value 1 -Type Dword
+# Set password policy
+Set-GPRegistryValue -Name "[SD][Choco] LAPS" -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "PasswordComplexity" -Value 4 -Type Dword
+Set-GPRegistryValue -Name "[SD][Choco] LAPS" -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "PasswordLength" -Value 16 -Type Dword
+Set-GPRegistryValue -Name "[SD][Choco] LAPS" -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "PasswordAgeDays" -Value 30 -Type Dword
 Get-GPO -Name "[SD][Choco] LAPS" | New-GPLink -target "OU=AllComputers,$LDAP_DN" -LinkEnabled Yes
 
 #New-GPO -Name "Windows Update"
