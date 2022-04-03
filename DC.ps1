@@ -97,7 +97,15 @@ redirusr OU=AllUsers,$LDAP_DN
 
 ###############################################################################
 # Deploy LAPS
-powershell -exec bypass -nop -Command "iwr https://chocolatey.org/install.ps1 -UseBasicParsing | iex"
+if( -not (get-command choco.exe -ErrorAction SilentlyContinue) ){
+	try {
+		iwr https://chocolatey.org/install.ps1 -UseBasicParsing | iex
+	} catch {
+		[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
+		iwr https://chocolatey.org/install.ps1 -UseBasicParsing | iex
+	}
+	set-alias -name choco -Value 'C:\ProgramData\chocolatey\bin\choco.exe'
+}
 choco install laps --params='/ALL' -y
 Import-module AdmPwd.PS
 Update-AdmPwdADSchema
