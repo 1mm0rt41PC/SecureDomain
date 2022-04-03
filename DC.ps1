@@ -97,6 +97,7 @@ redirusr OU=AllUsers,$LDAP_DN
 
 ###############################################################################
 # Deploy LAPS
+# Do not forget to run only these commands on the server with FSMO `SchemaMaster` => `Get-ADForest | Select-Object SchemaMaster`
 if( -not (get-command choco.exe -ErrorAction SilentlyContinue) ){
 	try {
 		iwr https://chocolatey.org/install.ps1 -UseBasicParsing | iex
