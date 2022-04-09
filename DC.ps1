@@ -107,12 +107,16 @@ if( -not (get-command choco.exe -ErrorAction SilentlyContinue) ){
 	}
 	set-alias -name choco -Value 'C:\ProgramData\chocolatey\bin\choco.exe'
 }
+# Installation of LAPS & LAPS UI on the DC
 choco install laps --params='/ALL' -y
+# Update the schema of the AD
 Import-module AdmPwd.PS
 Update-AdmPwdADSchema
-Set-AdmPwdComputerSelfPermission -Identity AllComputers
-# LAPS - GPO
+# Set ACLs to set passwords in ms-Mcs-AdmPwd by SELF (computers)
+Set-AdmPwdComputerSelfPermission -Identity AllComputers # <Base OU with computers>
+# Create LAPS auto deployement
 New-GPOSchTask -GPOName "[SD][Choco] LAPS" -TaskName "[SD][Choco] LAPS" -TaskType ImmediateTask -Command 'C:\ProgramData\chocolatey\bin\choco.exe' -CommandArguments 'install -y laps'
+# One line full deploy New-GPOSchTask -GPOName "[SD][Choco] LAPS" -TaskName "[SD][Choco] LAPS" -TaskType ImmediateTask -Command "powershell.exe" -CommandArguments '-exec bypass -nop -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;iwr https://chocolatey.org/install.ps1 -UseBasicParsing | iex; C:\ProgramData\chocolatey\bin\choco.exe install -y laps"'
 # Enable local admin password management
 Set-GPRegistryValue -Name "[SD][Choco] LAPS" -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "AdmPwdEnabled" -Value 1 -Type Dword
 # Do not allow password expiration time longer than required by policy
