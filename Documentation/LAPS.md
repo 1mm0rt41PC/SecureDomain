@@ -1,5 +1,5 @@
 1) Install the module on the primary DC `Get-ADForest | Select-Object SchemaMaster`
-```
+```ps1
 if( -not (get-command choco.exe -ErrorAction SilentlyContinue) ){
 	try {
 		iwr https://chocolatey.org/install.ps1 -UseBasicParsing | iex
@@ -19,7 +19,7 @@ Set-AdmPwdComputerSelfPermission -Identity <Base OU with computers>
 ```
 
 2) Create the GPO - Auto LAPS deployement
-```
+```ps1
 try {
 	iwr https://raw.githubusercontent.com/1mm0rt41PC/SecureDomain/main/Function_New-GPOSchTask.ps1 -UseBasicParsing | iex
 } catch {
@@ -38,19 +38,19 @@ Set-GPRegistryValue -Name "[SD][Choco] LAPS" -Key "HKLM\Software\Policies\Micros
 
 
 4) Test part. Connect to the "test" computer and run:
-```
+```batch
 C:\> gpupdate /force
 ```
 
 To check the deployment of choco & laps:
-```
+```batch
 C:\> dir C:\ProgramData\chocolatey\bin\
 C:\> C:\ProgramData\chocolatey\bin\choco.exe list -local
 ```
 
 5) Check the status of the password in the DC, in a powershell with **ADMIN UAC**:
-```
-Get-AdmPwdPassword -Name <victime>
+```ps1
+Get-AdmPwdPassword -Name <test-computer>
 ```
 
 In case of problem, you have to run a new `gpupdate /force` and if it fails, on the test computer:
