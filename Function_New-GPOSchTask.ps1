@@ -1,45 +1,45 @@
 function New-GPOSchTask
 {
-    [CmdletBinding()]
-    Param (
-        [Parameter(Mandatory = $True)]
-        [String]
-        [ValidateNotNullOrEmpty()]
-        $TaskName,
+	[CmdletBinding()]
+	Param (
+		[Parameter(Mandatory = $True)]
+		[String]
+		[ValidateNotNullOrEmpty()]
+		$TaskName,
 		
-        [Parameter(Mandatory = $True)]
-        [String]
-        [ValidateNotNullOrEmpty()]
-        $GPOName,
+		[Parameter(Mandatory = $True)]
+		[String]
+		[ValidateNotNullOrEmpty()]
+		$GPOName,
 
-        [String]
-        [ValidateNotNullOrEmpty()]
-        $Command = 'powershell',
+		[String]
+		[ValidateNotNullOrEmpty()]
+		$Command = 'powershell',
 		
-        [String]
-        [ValidateNotNullOrEmpty()]
-        $CommandArguments,
+		[String]
+		[ValidateNotNullOrEmpty()]
+		$CommandArguments,
 
-        [String]
-        [ValidateNotNullOrEmpty()]
-        $RunAs = 'S-1-5-18',
+		[String]
+		[ValidateNotNullOrEmpty()]
+		$RunAs = 'S-1-5-18',
 		
-        [String]
-        [ValidateSet('ImmediateTask','Task')]
+		[String]
+		[ValidateSet('ImmediateTask','Task')]
 		$TaskType='ImmediateTask',
 		
-        [String]
-        [ValidateSet('Create','Replace','Update','Delete')]
+		[String]
+		[ValidateSet('Create','Replace','Update','Delete')]
 		$TaskAction='Replace',
 		
-        [String]
-        [ValidateSet('User','Machine')]
+		[String]
+		[ValidateSet('User','Machine')]
 		$Context='Machine',
 		
 		[ValidateRange(0,23)]
 		[Int]
 		$StartEveryDayAt=9
-    )
+	)
 	Write-Host "[*] Create temp GPO"
 	New-GPO Temp_SchTaskMaker | Out-Null
 	md -ErrorAction SilentlyContinue "C:\Windows\Temp\Temp_SchTaskMaker\"  | Out-Null
@@ -67,12 +67,14 @@ function New-GPOSchTask
 		$Triggers='<TimeTrigger><StartBoundary>%LocalTimeXmlEx%</StartBoundary><EndBoundary>%LocalTimeXmlEx%</EndBoundary><Enabled>true</Enabled></TimeTrigger>'
 	}else{
 		$clsid='D8896631-B747-47a7-84A6-C155337F3BC8'
-		$Triggers='<CalendarTrigger><StartBoundary>2021-11-19T{0:d2}:00:00</StartBoundary><Enabled>true</Enabled><ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay></CalendarTrigger>' -f $StartAt
+		$date=(Get-Date).AddDays(1).ToString("yyyy-MM-ddT{0:d2}:00:00" -f $StartEveryDayAt)
+		$Triggers='<CalendarTrigger><StartBoundary>{0}</StartBoundary><Enabled>true</Enabled><ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay></CalendarTrigger>' -f $date
 	}
-    md "C:\Windows\Temp\Temp_SchTaskMaker\{$backupId}\DomainSysvol\GPO\$Context\Preferences\ScheduledTasks\" | Out-Null
+	md "C:\Windows\Temp\Temp_SchTaskMaker\{$backupId}\DomainSysvol\GPO\$Context\Preferences\ScheduledTasks\" | Out-Null
+$date=(Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
 ( @"
 <?xml version="1.0" encoding="utf-8"?>
-<ScheduledTasks clsid="{CC63F200-7309-4ba0-B154-A71CD118DBCC}"><$($TaskType)V2 clsid="{$clsid}" name="$TaskName" image="0" changed="2021-11-22 14:12:40" uid="{D98A502B-7563-4A3D-A4EA-5B4EE8E63364}" $TaskProperties><Properties action="$($TaskAction[0])" name="$TaskName" runAs="$RunAs" logonType="S4U"><Task version="1.2"><RegistrationInfo><Author>$($env:USERDOMAIN)\$($env:USERNAME)</Author><Description>This task need to run with $RunAs</Description></RegistrationInfo><Principals><Principal id="Author"><UserId>$RunAs</UserId><LogonType>S4U</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals><Settings><IdleSettings><Duration>PT5M</Duration><WaitTimeout>PT1H</WaitTimeout><StopOnIdleEnd>false</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>true</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>true</StopIfGoingOnBatteries><AllowHardTerminate>true</AllowHardTerminate><StartWhenAvailable>true</StartWhenAvailable><AllowStartOnDemand>true</AllowStartOnDemand><Enabled>true</Enabled><Hidden>false</Hidden><ExecutionTimeLimit>PT2H</ExecutionTimeLimit><Priority>7</Priority>$DeleteExpiredTaskAfter<RestartOnFailure><Interval>PT5M</Interval><Count>3</Count></RestartOnFailure></Settings><Actions Context="Author"><Exec><Command>$Command</Command><Arguments>$CommandArguments</Arguments></Exec></Actions><Triggers>$Triggers</Triggers></Task></Properties></$($TaskType)V2>
+<ScheduledTasks clsid="{CC63F200-7309-4ba0-B154-A71CD118DBCC}"><$($TaskType)V2 clsid="{$clsid}" name="$TaskName" image="0" changed="$date" uid="{D98A502B-7563-4A3D-A4EA-5B4EE8E63364}" $TaskProperties><Properties action="$($TaskAction[0])" name="$TaskName" runAs="$RunAs" logonType="S4U"><Task version="1.2"><RegistrationInfo><Author>$($env:USERDOMAIN)\$($env:USERNAME)</Author><Description>This task need to run with $RunAs</Description></RegistrationInfo><Principals><Principal id="Author"><UserId>$RunAs</UserId><LogonType>S4U</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals><Settings><IdleSettings><Duration>PT5M</Duration><WaitTimeout>PT1H</WaitTimeout><StopOnIdleEnd>false</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>true</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>true</StopIfGoingOnBatteries><AllowHardTerminate>true</AllowHardTerminate><StartWhenAvailable>true</StartWhenAvailable><AllowStartOnDemand>true</AllowStartOnDemand><Enabled>true</Enabled><Hidden>false</Hidden><ExecutionTimeLimit>PT2H</ExecutionTimeLimit><Priority>7</Priority>$DeleteExpiredTaskAfter<RestartOnFailure><Interval>PT5M</Interval><Count>3</Count></RestartOnFailure></Settings><Actions Context="Author"><Exec><Command>$Command</Command><Arguments>$CommandArguments</Arguments></Exec></Actions><Triggers>$Triggers</Triggers></Task></Properties></$($TaskType)V2>
 </ScheduledTasks>
 "@ ).Trim() | Out-File -Encoding ASCII "C:\Windows\Temp\Temp_SchTaskMaker\{$backupId}\DomainSysvol\GPO\$Context\Preferences\ScheduledTasks\ScheduledTasks.xml"
 	Import-GPO -CreateIfNeeded -Path 'C:\Windows\Temp\Temp_SchTaskMaker\' -TargetName $GPOName -BackupId $backupId
