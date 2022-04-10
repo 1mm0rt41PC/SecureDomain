@@ -542,6 +542,12 @@ Set-GPRegistryValue -Name "[SD] [FW] Block-LLMNR" -Key "HKEY_LOCAL_MACHINE\SOFTW
 FWRule @{ GpoName="[FW] Block-NetBios"; Action='Block'; Direction='Outbound'; Group='GPO-NetBios'; Protocol='UDP'; Name='NetBios-UDP'; RemotePort=137 }
 FWRule @{ GpoName="[FW] Block-NetBios"; Action='Block'; Direction='Outbound'; Group='GPO-NetBios'; Protocol='TCP'; Name='NetBios-TCP'; RemotePort=139 }
 Set-GPRegistryValue -Name "[SD] [FW] Block-NetBios" -Key "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Netbt\Parameters" -ValueName "NodeType" -Value 2 -Type Dword
+# Block WPAD
+# => Disable wpad service
+Set-GPRegistryValue -Name "[SD] Disable-WPAD" -Key "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WinHttpAutoProxySvc" -ValueName "Start" -Value 4 -Type Dword
+Set-GPRegistryValue -Name "[SD] Disable-WPAD" -Key "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings\Wpad" -ValueName "WpadOverride" -Value 1 -Type Dword
+# https://web.archive.org/web/20160301201733/http://blog.raido.be/?p=426
+Set-GPRegistryValue -Name "[SD] Disable-WPAD" -Key "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings" -ValueName "AutoDetect" -Value 0 -Type Dword
 # Allow ICMPv4
 FWRule @{ GpoName='ICMPv4'; Action='Allow'; Direction='Inbound'; Group='GPO-ICMP'; Protocol='ICMPv4'; Name='ICMP in' }
 FWRule @{ GpoName='ICMPv4'; Action='Allow'; Direction='Outbound'; Group='GPO-ICMP'; Protocol='ICMPv4'; Name='ICMP out' }
