@@ -1,3 +1,5 @@
+# How to quickly deploy LAPS
+
 1) Install the module on the primary DC `Get-ADForest | Select-Object SchemaMaster`
 ```ps1
 if( -not (get-command choco.exe -ErrorAction SilentlyContinue) ){
