@@ -552,6 +552,11 @@ Set-GPRegistryValue -Name "[SD] Disable-WPAD" -Key "HKEY_CURRENT_USER\Software\M
 FWRule @{ GpoName='ICMPv4'; Action='Allow'; Direction='Inbound'; Group='GPO-ICMP'; Protocol='ICMPv4'; Name='ICMP in' }
 FWRule @{ GpoName='ICMPv4'; Action='Allow'; Direction='Outbound'; Group='GPO-ICMP'; Protocol='ICMPv4'; Name='ICMP out' }
 
+# Hardened UNC Paths
+# https://www.pentestpartners.com/security-blog/windows-server-settings-administrative-templates-network-items-a-security-how-to/#hardunc
+# https://admx.help/?Category=Windows_10_2016&Policy=Microsoft.Policies.NetworkProvider::Pol_HardenedPaths
+Set-GPRegistryValue -Name "[SD] Hardened UNC Paths" -Key "HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths" -ValueName "1" -Value "\\*\NETLOGON RequireMutualAuthentication=1, RequireIntegrity=1" -Type String
+Set-GPRegistryValue -Name "[SD] Hardened UNC Paths" -Key "HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\NetworkProvider\HardenedPaths" -ValueName "1" -Value "\\*\SYSVOL RequireMutualAuthentication=1, RequireIntegrity=1" -Type String
 
 
 
