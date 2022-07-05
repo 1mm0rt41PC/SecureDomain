@@ -555,6 +555,29 @@ New-GPO -Name "[SD][Priv] AdminLocal for group PRIV_LOCAL_ADM" | %{
 	$inf > "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
 }
 
+###############################################################################
+# [Hardening] DomainAdmin not allowed to connect
+$UID__DOMAIN = (Get-ADDomain).DomainSID.Value
+$inf=@"
+[Unicode]
+Unicode=yes
+[Version]
+signature="$CHICAGO$"
+Revision=1
+[Privilege Rights]
+SeDenyNetworkLogonRight = *S-1-5-32-546,*$UID__DOMAIN-514,*$UID__DOMAIN-501,*$UID__DOMAIN-512,*$UID__DOMAIN-519,admin
+SeDenyInteractiveLogonRight = *$UID__DOMAIN-512,*$UID__DOMAIN-519
+SeDenyServiceLogonRight = *$UID__DOMAIN-512
+SeDenyBatchLogonRight = *$UID__DOMAIN-512
+SeDenyRemoteInteractiveLogonRight = *$UID__DOMAIN-512
+"@
+New-GPO -Name "[SD][Hardening] DomainAdmin not allowed to connect" | %{
+	$id = $_.Id.ToString()
+	mkdir "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit"
+	$inf > "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
+}
+
+
 
 ###################################################################################################
 # Software library
