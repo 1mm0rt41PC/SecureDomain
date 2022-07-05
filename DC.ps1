@@ -127,9 +127,24 @@ Set-GPRegistryValue -Name "[SD][Choco] LAPS" -Key "HKLM\Software\Policies\Micros
 Set-GPRegistryValue -Name "[SD][Choco] LAPS" -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "PasswordAgeDays" -Value 30 -Type Dword
 Get-GPO -Name "[SD][Choco] LAPS" | New-GPLink -target "OU=AllComputers,$LDAP_DN" -LinkEnabled Yes
 
-#New-GPO -Name "Windows Update"
-#Set-GPRegistryValue -Name "Windows Update" -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "DetectionFrequencyEnabled" -Value 1 -Type DWord
-#Set-GPRegistryValue -Name "Windows Update" -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "De-tectionFrequency" -Value 22 -Type DWord
+New-GPO -Name "[SD] WindowsUpdate for servers" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate" -ValueName "SetActiveHoursMaxRange" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate" -ValueName "ActiveHoursMaxRange" -Value 18 -Type DWord
+	# Auto download and schedule the install
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "AUOptions" -Value 4 -Type DWord
+	# Install during automatic maintenance
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "AutomaticMaintenanceEnabled" -Value 1 -Type DWord
+	# Scheduled install day: Every day
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "ScheduledInstallDay" -Value 0 -Type DWord
+	# Install at 03:00 AM
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "ScheduledInstallTime" -Value 3 -Type DWord
+	# If you have selected "4 – Auto download and schedule the install" for your scheduled install day and specified a schedule, you also have the option to limit updating to a weekly, bi-weekly or monthly occurrence, using the options below: Every week
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "ScheduledInstallEveryWeek" -Value 1 -Type DWord
+	# Install updates for other Microsoft products
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "AllowMUUpdateService" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "AutoInstallMinorUpdates" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "IncludeRecommendedUpdates" -Value 1 -Type DWord
+}
 
 GPO_reg "[SD][Hardening] Machine Password Rotation" @{
 	'HKLM\System\CurrentControlSet\Services\Netlogon\Parameters'=@{
