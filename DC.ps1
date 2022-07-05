@@ -409,6 +409,51 @@ New-GPO -Name "[SD][Hardening] Bitlocker" | %{
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "EncryptionMethod" -Value 2 -Type DWord
 }
 
+###################################################################################################
+New-GPO -Name "[SD] Windows defender" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Signature Updates" -ValueName "ASSignatureDue" -Value 2 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Signature Updates" -ValueName "AVSignatureDue" -Value 2 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Signature Updates" -ValueName "DisableUpdateOnStartupWithoutEngine" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Signature Updates" -ValueName "ForceUpdateFromMU" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Signature Updates" -ValueName "RealtimeSignatureDelivery" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Signature Updates" -ValueName "ScheduleDay" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Signature Updates" -ValueName "SignatureUpdateInterval" -Value 12 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Signature Updates" -ValueName "UpdateOnStartUp" -Value 1 -Type DWord
+
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender" -ValueName "DisableAntiSpyware" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender" -ValueName "DisableRoutinelyTakingAction" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender" -ValueName "PUAProtection" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Real-Time Protection" -ValueName "DisableBehaviorMonitoring" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Real-Time Protection" -ValueName "DisableIOAVProtection" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Real-Time Protection" -ValueName "DisableOnAccessProtection" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Real-Time Protection" -ValueName "DisableRawWriteNotification" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Real-Time Protection" -ValueName "DisableScanOnRealtimeEnable" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Real-Time Protection" -ValueName "RealtimeScanDirection" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Scan" -ValueName "DisableHeuristics" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Scan" -ValueName "DisablePackedExeScanning" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Signature Updates" -ValueName "DisableUpdateOnStartupWithoutEngine" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard\ASR" -ValueName "ExploitGuard_ASR_Rules" -Value 1 -Type DWord
+	# Block Office applications from injecting code into other processes
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard\ASR\Rules" -ValueName "75668C1F-73B5-4CF0-BB93-3ECF5CB7CC84" -Type String -Value 1
+	# Block Office applications from creating child processes
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard\ASR\Rules" -ValueName "D4F940AB-401B-4EFC-AADC-AD5F3C50688A" -Type String -Value 1
+	# Block Win32 API calls from Office macro
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard\ASR\Rules" -ValueName "92E97FA1-2EDF-4476-BDD6-9DD0B4DDDC7B" -Type String -Value 1
+	# Block Office applications from creating executable content
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard\ASR\Rules" -ValueName "3B576869-A4EC-4529-8536-B80A7769E899" -Type String -Value 1
+	# Block execution of potentially obfuscated scripts
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard\ASR\Rules" -ValueName "5BEB7EFE-FD9A-4556-801D-275E5FFC04CC" -Type String -Value 1
+	# Block executable content from email client and webmail
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard\ASR\Rules" -ValueName "BE9BA2D9-53EA-4CDC-84E5-9B1EEEE46550" -Type String -Value 1
+	# Block JavaScript or VBScript from launching downloaded executable content
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard\ASR\Rules" -ValueName "D3E037E1-3EB8-44C8-A917-57927947596D" -Type String -Value 1
+	# Use advanced protection against ransomware
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard\ASR\Rules" -ValueName "C1DB55AB-C21A-4637-BB3F-A12568109D35" -Type String -Value 1
+	# Block untrusted and unsigned processes that run from USB
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard\ASR\Rules" -ValueName "B2B3F03D-6A65-4F7B-A9C7-1C7EF74A9BA4" -Type String -Value 1
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard\Network Protection" -ValueName "EnableNetworkProtection" -Value 1 -Type DWord
+}
+
 ###############################################################################
 # Groups allowed to link new computers to the domain (PRIV_ENROLL_MACHINE)
 $UID__PRIV_ENROLL_MACHINE = (New-Object System.Security.Principal.NTAccount($env:USERDOMAIN, "PRIV_ENROLL_MACHINE")).Translate([System.Security.Principal.SecurityIdentifier]).Value
