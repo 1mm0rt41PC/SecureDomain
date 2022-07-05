@@ -489,6 +489,28 @@ New-GPO -Name "[SD][Priv] Allow RDP for group PRIV_REMOTE_TS" | %{
 	$inf > "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
 }
 
+###############################################################################
+# [Priv] AdminLocal for group PRIV_LOCAL_ADM
+# S-1-5-32-544=Local administors group
+# S-1-5-114=LOCAL_ACCOUNT_AND_MEMBER_OF_ADMINISTRATORS_GROUP
+$UID__PRIV_LOCAL_ADM = (New-Object System.Security.Principal.NTAccount($env:USERDOMAIN, "PRIV_LOCAL_ADM")).Translate([System.Security.Principal.SecurityIdentifier]).Value
+$inf=@"
+[Unicode]
+Unicode=yes
+[Version]
+signature="$CHICAGO$"
+Revision=1
+[Group Membership]
+*S-1-5-32-544__Memberof =
+*S-1-5-32-544__Members = *S-1-5-114,*$UID__PRIV_LOCAL_ADM
+"@
+New-GPO -Name "[SD][Priv] AdminLocal for group PRIV_LOCAL_ADM" | %{
+	$id = $_.Id.ToString()
+	mkdir "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit"
+	$inf > "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
+}
+
+
 ###################################################################################################
 # Software library
 New-GPOSchTask -GPOName "[SD][Choco] Upgrade all" -TaskName "[SD][Choco] Upgrade all" -TaskType Task -StartEveryDayAt 9 -Command 'powershell.exe' -CommandArguments @'
