@@ -250,6 +250,26 @@ New-GPO -Name "[SD][Hardening] Disable print spooler" | %{
 
 ###################################################################################################
 # LogSystem
+$inf = @'
+[Unicode]
+Unicode=yes
+[Version]
+signature="$CHICAGO$"
+Revision=1
+[Event Audit]
+AuditSystemEvents = 3
+AuditLogonEvents = 3
+AuditObjectAccess = 3
+AuditPrivilegeUse = 3
+AuditPolicyChange = 3
+AuditAccountManage = 3
+AuditProcessTracking = 3
+AuditDSAccess = 3
+AuditAccountLogon = 3
+[Registry Values]
+MACHINE\System\CurrentControlSet\Control\Lsa\MSV1_0\AuditReceivingNTLMTraffic=4,2
+MACHINE\System\CurrentControlSet\Services\Netlogon\Parameters\AuditNTLMInDomain=4,7
+'@
 New-GPO -Name "[SD] LogSystem" | %{
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\PowerShell\ModuleLogging" -ValueName "EnableModuleLogging" -Value 1 -Type DWord
 	$_ | Set-GPRegistryValue -Key "HKCU\Software\Policies\Microsoft\Windows\PowerShell\Transcription" -ValueName "EnableTranscripting" -Value 1 -Type DWord
@@ -259,6 +279,15 @@ New-GPO -Name "[SD] LogSystem" | %{
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Channels\Microsoft-Windows-Dhcp-Client/Operational" -ValueName "Enabled" -Value 1 -Type DWord
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Channels\Microsoft-Windows-Dhcpv6-Client/Operational" -ValueName "Enabled" -Value 1 -Type DWord
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Channels\Microsoft-Windows-DNS-Client/Operational" -ValueName "Enabled" -Value 1 -Type DWord
+
+	# Audit incoming NTLM traffic: Enable auditing for all accounts
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0" -ValueName "AuditReceivingNTLMTraffic" -Value 2 -Type DWord
+	# Audit NTLM Authentication in this domain: Enable all
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\services\Netlogon\Parameters" -ValueName AuditNTLMInDomain -Value 7 -Type DWord
+	
+	$id = $_.Id.ToString()
+	mkdir "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit"
+	$inf > "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
 }
 
 ###################################################################################################
