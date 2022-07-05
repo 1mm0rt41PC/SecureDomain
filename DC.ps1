@@ -139,6 +139,11 @@ GPO_reg "[SD][Hardening] Machine Password Rotation" @{
 }
 
 ###################################################################################################
+New-GPO -Name "[SD] Unlimited Path length" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\FileSystem" -ValueName "LongPathsEnabled" -Value 1 -Type Dword
+}
+
+###################################################################################################
 # NTLM hardening
 GPO_reg "[SD][Hardening] Network security: Restrict NTLM: Incoming/outgoing NTLM traffic" @{
 	'HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0'=@{
