@@ -428,6 +428,67 @@ New-GPO -Name "[SD][Priv] Groups allowed to link new computers to the domain (PR
 
 }
 
+###############################################################################
+# [Priv] Allow session for groups PRIV_INTERACT_WORKSTATION,PRIV_LOCAL_ADM
+# S-1-5-32-544=Local administors
+$UID__PRIV_LOCAL_ADM = (New-Object System.Security.Principal.NTAccount($env:USERDOMAIN, "PRIV_LOCAL_ADM")).Translate([System.Security.Principal.SecurityIdentifier]).Value
+$UID__PRIV_INTERACT_WORKSTATION = (New-Object System.Security.Principal.NTAccount($env:USERDOMAIN, "PRIV_INTERACT_WORKSTATION")).Translate([System.Security.Principal.SecurityIdentifier]).Value
+$inf=@"
+[Unicode]
+Unicode=yes
+[Version]
+signature="$CHICAGO$"
+Revision=1
+[Privilege Rights]
+SeInteractiveLogonRight = *S-1-5-32-544,*$UID__PRIV_LOCAL_ADM,*$UID__PRIV_INTERACT_WORKSTATION
+"@
+New-GPO -Name "[SD][Priv] Allow session for groups PRIV_INTERACT_WORKSTATION,PRIV_LOCAL_ADM" | %{
+	$id = $_.Id.ToString()
+	mkdir "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit"
+	$inf > "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
+}
+
+###############################################################################
+# [Priv] Allow session for groups PRIV_INTERACT_LAPTOP,PRIV_LOCAL_ADM
+# S-1-5-32-544=Local administors
+$UID__PRIV_LOCAL_ADM = (New-Object System.Security.Principal.NTAccount($env:USERDOMAIN, "PRIV_LOCAL_ADM")).Translate([System.Security.Principal.SecurityIdentifier]).Value
+$UID__PRIV_INTERACT_LAPTOP = (New-Object System.Security.Principal.NTAccount($env:USERDOMAIN, "PRIV_INTERACT_LAPTOP")).Translate([System.Security.Principal.SecurityIdentifier]).Value
+$inf=@"
+[Unicode]
+Unicode=yes
+[Version]
+signature="$CHICAGO$"
+Revision=1
+[Privilege Rights]
+SeInteractiveLogonRight = *S-1-5-32-544,*$UID__PRIV_LOCAL_ADM,*$UID__PRIV_INTERACT_LAPTOP
+"@
+New-GPO -Name "[SD][Priv] Allow session for groups PRIV_INTERACT_LAPTOP,PRIV_LOCAL_ADM" | %{
+	$id = $_.Id.ToString()
+	mkdir "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit"
+	$inf > "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
+}
+
+###############################################################################
+# [Priv] Allow RDP for group PRIV_REMOTE_TS
+# S-1-5-32-544=Local administors
+$UID__PRIV_LOCAL_ADM = (New-Object System.Security.Principal.NTAccount($env:USERDOMAIN, "PRIV_LOCAL_ADM")).Translate([System.Security.Principal.SecurityIdentifier]).Value
+$UID__PRIV_REMOTE_TS = (New-Object System.Security.Principal.NTAccount($env:USERDOMAIN, "PRIV_REMOTE_TS")).Translate([System.Security.Principal.SecurityIdentifier]).Value
+$inf=@"
+[Unicode]
+Unicode=yes
+[Version]
+signature="$CHICAGO$"
+Revision=1
+[Privilege Rights]
+SeInteractiveLogonRight = *S-1-5-32-544,*$UID__PRIV_REMOTE_TS,*$UID__PRIV_LOCAL_ADM
+SeNetworkLogonRight = *S-1-5-32-544,*$UID__PRIV_REMOTE_TS,*$UID__PRIV_LOCAL_ADM
+"@
+New-GPO -Name "[SD][Priv] Allow RDP for group PRIV_REMOTE_TS" | %{
+	$id = $_.Id.ToString()
+	mkdir "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit"
+	$inf > "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
+}
+
 ###################################################################################################
 # Software library
 New-GPOSchTask -GPOName "[SD][Choco] Upgrade all" -TaskName "[SD][Choco] Upgrade all" -TaskType Task -StartEveryDayAt 9 -Command 'powershell.exe' -CommandArguments @'
@@ -660,9 +721,6 @@ New-GPO -Name "[SD][Hardening] DomainAdmin not allowed to connect"
 New-GPO -Name "[SD][Hardening] DomainAdmin only are allowed to connect"
 New-GPO -Name "[SD][Hardening] Force LDAP&SMB signing and force NTLMv2"
 New-GPO -Name "[SD][Priv] AdminLocal for group PRIV_LOCAL_ADM"
-New-GPO -Name "[SD][Priv] Allow RDP for group PRIV_REMOTE_TS"
-New-GPO -Name "[SD][Priv] Allow session for group PRIV_INTERACT_LAPTOP"
-New-GPO -Name "[SD][Priv] Allow session for group PRIV_INTERACT_WORKSTATION"
 New-GPO -Name "[SD] Certificates"
 
 
