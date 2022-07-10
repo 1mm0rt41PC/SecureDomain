@@ -80,6 +80,7 @@ New-ADGroup -Name PRIV_DBA_ADMIN -Path "OU=AllUsers,$LDAP_DN"
 New-ADGroup -Name PRIV_INTERACT_LAPTOP -Path "OU=AllUsers,$LDAP_DN"
 New-ADGroup -Name PRIV_INTERACT_WORKSTATION -Path "OU=AllUsers,$LDAP_DN"
 New-ADGroup -Name PRIV_LOCAL_ADM -Path "OU=AllUsers,$LDAP_DN"
+New-ADGroup -Name PRIV_ENROLL_MACHINE -Path "OU=AllUsers,$LDAP_DN"
 New-ADOrganizationalUnit -Name "AllComputers" -Path "$LDAP_DN"
 New-ADOrganizationalUnit -Name "Laptops" -Path "OU=AllComputers,$LDAP_DN"
 New-ADOrganizationalUnit -Name "Workstations" -Path "OU=AllComputers,$LDAP_DN"
@@ -408,6 +409,25 @@ New-GPO -Name "[SD][Hardening] Bitlocker" | %{
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "EncryptionMethod" -Value 2 -Type DWord
 }
 
+###############################################################################
+# Groups allowed to link new computers to the domain (PRIV_ENROLL_MACHINE)
+$UID__PRIV_ENROLL_MACHINE = (New-Object System.Security.Principal.NTAccount($env:USERDOMAIN, "PRIV_ENROLL_MACHINE")).Translate([System.Security.Principal.SecurityIdentifier]).Value
+$inf=@"
+[Unicode]
+Unicode=yes
+[Version]
+signature="$CHICAGO$"
+Revision=1
+[Privilege Rights]
+SeMachineAccountPrivilege = *$UID__PRIV_ENROLL_MACHINE
+"@
+New-GPO -Name "[SD][Priv] Groups allowed to link new computers to the domain (PRIV_ENROLL_MACHINE)" | %{
+	$id = $_.Id.ToString()
+	mkdir "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit"
+	$inf > "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
+
+}
+
 ###################################################################################################
 # Software library
 New-GPOSchTask -GPOName "[SD][Choco] Upgrade all" -TaskName "[SD][Choco] Upgrade all" -TaskType Task -StartEveryDayAt 9 -Command 'powershell.exe' -CommandArguments @'
@@ -643,11 +663,7 @@ New-GPO -Name "[SD][Priv] AdminLocal for group PRIV_LOCAL_ADM"
 New-GPO -Name "[SD][Priv] Allow RDP for group PRIV_REMOTE_TS"
 New-GPO -Name "[SD][Priv] Allow session for group PRIV_INTERACT_LAPTOP"
 New-GPO -Name "[SD][Priv] Allow session for group PRIV_INTERACT_WORKSTATION"
-New-GPO -Name "[SD][Priv] Allow group PRIV_ENROLL_MACHINE to link new computers to the domain"
 New-GPO -Name "[SD] Certificates"
-New-GPO -Name "[SD] WindowsUpdate for servers"
-
-
 
 
 
