@@ -456,6 +456,7 @@ New-GPO -Name "[SD] Windows defender" | %{
 
 ###############################################################################
 # Groups allowed to link new computers to the domain (PRIV_ENROLL_MACHINE)
+# Version GUI https://www.danielengberg.com/domain-join-permissions-delegate-active-directory/
 $UID__PRIV_ENROLL_MACHINE = (New-Object System.Security.Principal.NTAccount($env:USERDOMAIN, "PRIV_ENROLL_MACHINE")).Translate([System.Security.Principal.SecurityIdentifier]).Value
 $inf=@"
 [Unicode]
