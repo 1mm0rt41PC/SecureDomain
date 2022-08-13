@@ -40,7 +40,7 @@ $stringNameDA = $domainAdmins.Translate( [System.Security.Principal.NTAccount]).
 .PARAMETER modePreview
     Apply change or juste print what will be change ?
 #>
-function setOwnerToDA( $obj, $modePreview=$false )
+function setOwnerToDA( $obj, $modePreview=$true )
 {
 	$comppath = $obj.DistinguishedName.ToString()
 	$comppath = "AD:$comppath"
@@ -150,7 +150,7 @@ function isAdGroup( $sUser )
 .PARAMETER funcTester
     Function to use to check ACLs
 #>
-function removeWeekAcl_fromUsers( $obj, $modePreview=$false, $funcTester='isAdUser' )
+function removeWeekAcl_fromUsers( $obj, $modePreview=$true, $funcTester='isAdUser' )
 {
 	$comppath = $obj.DistinguishedName.ToString()
 	$comppath = "AD:$comppath"
@@ -174,7 +174,6 @@ function removeWeekAcl_fromUsers( $obj, $modePreview=$false, $funcTester='isAdUs
 		}
 	}
 }
-
 
 ########################################################
 ########################################################
