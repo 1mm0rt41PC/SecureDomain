@@ -9,6 +9,10 @@
 # MATCH p=(u1:Computer)-[r:AllExtendedRights|AddMember|ForceChangePassword|GenericAll|GenericWrite|Owns|WriteDacl|WriteOwner|AddSelf|WriteSPN|AddKeyCredentialLink*1..]->(u2:User) WHERE NOT(u1.name CONTAINS "MSOL_") RETURN p LIMIT 200
 ## All strange direct ACLs
 # MATCH p=(u1)-[r:AllExtendedRights|AddMember|ForceChangePassword|GenericAll|GenericWrite|Owns|WriteDacl|WriteOwner|AddSelf|WriteSPN|AddKeyCredentialLink*1..]->(u2) WHERE NOT(u1.name CONTAINS "MSOL_") AND NOT(u2.name CONTAINS "MSOL_") AND NOT(u1.name CONTAINS "ADMIN") AND NOT(u2.name CONTAINS "ADMIN") RETURN p LIMIT 200
+## Print as CSV all unusual ACLs
+# MATCH p=(u1:User)-[r:AllExtendedRights|AddMember|ForceChangePassword|GenericAll|GenericWrite|Owns|WriteDacl|WriteOwner|AddSelf|WriteSPN|AddKeyCredentialLink]->(u2) WHERE NOT(u1.name CONTAINS "MSOL_") and NOT(u2.name CONTAINS "HEALTHMAILBOX") RETURN u1.name,type(r),u2.name
+# MATCH p=(u1:Computer)-[r:AllExtendedRights|AddMember|ForceChangePassword|GenericAll|GenericWrite|Owns|WriteDacl|WriteOwner|AddSelf|WriteSPN|AddKeyCredentialLink]->(u2) WHERE NOT(u1.name CONTAINS "MSOL_") and NOT(u2.name CONTAINS "HEALTHMAILBOX") RETURN u1.name,type(r),u2.name
+
 
 
 ########################################################
