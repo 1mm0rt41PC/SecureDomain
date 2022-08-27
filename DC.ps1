@@ -6,7 +6,7 @@ Import-Module 'Function_FWRule.ps1'
 ###############################################################################
 # Basic configuration
 $IP_SRV   = $IP_AD
-$ComputerName   = 'AD-SRV01'
+$ComputerName   = 'DC-SRV01'
 
 ###############################################################################
 # AD-SRV01
