@@ -13,6 +13,7 @@ $ComputerName   = 'DC-SRV01'
 Rename-Computer -NewName $ComputerName
 New-NetIPAddress -IPAddress $IP_AD -DefaultGateway $IP_GATEWAY -PrefixLength 24 -InterfaceIndex (Get-NetAdapter).InterfaceIndex
 netsh interface ipv4 set address name="$((Get-NetAdapter).Name)" static $IP_AD 255.255.255.0 $IP_GATEWAY
+netsh interface ipv4 set dns name="$((Get-NetAdapter).Name)" static 8.8.8.8
 #netsh interface ipv4 set address name="$((Get-NetAdapter).Name)" source=dhcp
 #Set-DNSClientServerAddress –InterfaceIndex (Get-NetAdapter).InterfaceIndex –ServerAddresses $IP_DNS
 Install-WindowsFeature -name AD-Domain-Services -IncludeManagementTools
