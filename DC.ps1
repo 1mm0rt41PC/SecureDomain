@@ -19,7 +19,7 @@ netsh interface ipv4 set dns name="$((Get-NetAdapter).Name)" static 8.8.8.8
 Install-WindowsFeature -name AD-Domain-Services -IncludeManagementTools
 Install-ADDSForest -DomainName $domain -DomainNetBIOSName $domain_netbios -InstallDNS:$true -DomainMode WinThreshold -ForestMode WinThreshold -Force:$true
 Import-Module ActiveDirectory
-Enable-ADOptionalFeature -Identity "CN=Recycle Bin Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration,$LDAP_DN" -Scope ForestOrConfigurationSet –Target "$domain"
+Enable-ADOptionalFeature -Identity "CN=Recycle Bin Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration,$LDAP_DN" -Scope ForestOrConfigurationSet -Target "$domain"
 
 # Password policy
 $Policies= @{
