@@ -11,15 +11,20 @@ $ComputerName   = 'DC-SRV01'
 ###############################################################################
 # AD-SRV01
 Rename-Computer -NewName $ComputerName
+tzutil /s 'Pacific Standard Time'
 New-NetIPAddress -IPAddress $IP_AD -DefaultGateway $IP_GATEWAY -PrefixLength 24 -InterfaceIndex (Get-NetAdapter).InterfaceIndex
 netsh interface ipv4 set address name="$((Get-NetAdapter).Name)" static $IP_AD 255.255.255.0 $IP_GATEWAY
 netsh interface ipv4 set dns name="$((Get-NetAdapter).Name)" static 8.8.8.8
 #netsh interface ipv4 set address name="$((Get-NetAdapter).Name)" source=dhcp
-#Set-DNSClientServerAddress –InterfaceIndex (Get-NetAdapter).InterfaceIndex –ServerAddresses $IP_DNS
+#Set-DNSClientServerAddress -InterfaceIndex (Get-NetAdapter).InterfaceIndex -ServerAddresses ("8.8.8.8","8.8.4.4")
 Install-WindowsFeature -name AD-Domain-Services -IncludeManagementTools
 Install-ADDSForest -DomainName $domain -DomainNetBIOSName $domain_netbios -InstallDNS:$true -DomainMode WinThreshold -ForestMode WinThreshold -Force:$true
 Import-Module ActiveDirectory
 Enable-ADOptionalFeature -Identity "CN=Recycle Bin Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration,$LDAP_DN" -Scope ForestOrConfigurationSet -Target "$domain"
+
+# Install "BitLocker recovery tab"
+Install-WindowsFeature RSAT-Feature-Tools-BitLocker-BdeAducExt
+
 
 # Password policy
 $Policies= @{
@@ -34,28 +39,14 @@ $Policies= @{
 	PasswordHistoryCount=10;
 }
 Set-ADDefaultDomainPasswordPolicy @Policies
-
-
-###############################################################################
-# GPO creator for registry
-function GPO_reg( $gpoName, $param )
-{
-	$gpo = New-GPO -Name $gpoName
-	if( $gpo -eq $null ){
-		$gpo = Get-GPO -Name $gpoName
-	}
-	$param.Keys | foreach {
-		$Key = $_
-		$param[$Key].Keys | foreach {
-			$ValueName = $_
-			$Value = $param[$Key][$_]
-			Write-Host ('Set-GPRegistryValue -Name "{0}" -Key "{1}" -ValueName "{2}" -Value "{3}" -Type DWord' -f $gpoName,$Key,$ValueName,$Value)
-			$gpo | Set-GPRegistryValue -Key $key -ValueName $ValueName -Value $Value -Type DWord
-		}
-	}
-}
-
-
+# https://blog.lithnet.io/2019/01/lppad-1.html
+curl.exe -L https://github.com/lithnet/ad-password-protection/releases/latest/download/Lithnet.ActiveDirectory.PasswordProtection.msi --output Lithnet.ActiveDirectory.PasswordProtection.msi
+# Download the latest version of the NTLM passwords from the haveibeenpwned.com pwned password list (scroll to the end). Make sure you get the "NTLM Ordered by hash" version. Use the torrent link if you are able to so, as this helps minimize bandwidth and costs. Uncompress the file, and place it on your server to import later in the process.
+curl.exe -L https://downloads.pwnedpasswords.com/passwords/pwned-passwords-ntlm-ordered-by-hash-v8.7z --output hash.7z
+7z x hash.7z
+Import-Module LithnetPasswordProtection
+Open-Store 'C:\Program Files\Lithnet\Active Directory Password Protection\Store'
+Import-CompromisedPasswordHashes -Filename hash\pwned-passwords-ntlm-ordered-by-hash-*.txt
 
 ###############################################################################
 # Fix pingcastle A-PreWin2000Other
@@ -121,15 +112,24 @@ Set-AdmPwdComputerSelfPermission -Identity AllComputers # <Base OU with computer
 # Create LAPS auto deployement
 New-GPOSchTask -GPOName "[SD][Choco] LAPS" -TaskName "[SD][Choco] LAPS" -TaskType ImmediateTask -Command 'C:\ProgramData\chocolatey\bin\choco.exe' -CommandArguments 'install -y laps'
 # One line full deploy New-GPOSchTask -GPOName "[SD][Choco] LAPS" -TaskName "[SD][Choco] LAPS" -TaskType ImmediateTask -Command "powershell.exe" -CommandArguments '-exec bypass -nop -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;iwr https://chocolatey.org/install.ps1 -UseBasicParsing | iex; C:\ProgramData\chocolatey\bin\choco.exe install -y laps"'
-# Enable local admin password management
-Set-GPRegistryValue -Name "[SD][Choco] LAPS" -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "AdmPwdEnabled" -Value 1 -Type Dword
-# Do not allow password expiration time longer than required by policy
-Set-GPRegistryValue -Name "[SD][Choco] LAPS" -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "PwdExpirationProtectionEnabled" -Value 1 -Type Dword
-# Set password policy
-Set-GPRegistryValue -Name "[SD][Choco] LAPS" -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "PasswordComplexity" -Value 4 -Type Dword
-Set-GPRegistryValue -Name "[SD][Choco] LAPS" -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "PasswordLength" -Value 16 -Type Dword
-Set-GPRegistryValue -Name "[SD][Choco] LAPS" -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "PasswordAgeDays" -Value 30 -Type Dword
+Get-GPO -Name "[SD][Choco] LAPS" | %{
+	# Enable local admin password management
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "AdmPwdEnabled" -Value 1 -Type Dword
+	# Do not allow password expiration time longer than required by policy
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "PwdExpirationProtectionEnabled" -Value 1 -Type Dword
+	# Set password policy
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "PasswordComplexity" -Value 4 -Type Dword
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "PasswordLength" -Value 16 -Type Dword
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft Services\AdmPwd" -ValueName "PasswordAgeDays" -Value 30 -Type Dword
+	# Verbose mode, log everything
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\GPExtensions\{D76B9641-3288-4f75-942D-087DE603E3EA}" -ValueName "ExtensionDebugLevel" -Value 2 -Type Dword
+}
 Get-GPO -Name "[SD][Choco] LAPS" | New-GPLink -target "OU=AllComputers,$LDAP_DN" -LinkEnabled Yes
+# Grant a group for LAPS of computers of an OU
+##dsacls "OU=SecretComputers,OU=azerty,DC=corp,DC=local" /G "LAPS_READER_4_SecretComputers:CA;ms-Mcs-AdmPwd"
+
+
+# Get valie info for regestry => https://www.powershellgallery.com/packages/SecurityPolicyDsc/2.1.0.0/Content/DSCResources%5CMSFT_SecurityOption%5CSecurityOptionData.psd1
 
 New-GPO -Name "[SD] WindowsUpdate for servers" | %{
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate" -ValueName "SetActiveHoursMaxRange" -Value 1 -Type DWord
@@ -142,7 +142,7 @@ New-GPO -Name "[SD] WindowsUpdate for servers" | %{
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "ScheduledInstallDay" -Value 0 -Type DWord
 	# Install at 03:00 AM
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "ScheduledInstallTime" -Value 3 -Type DWord
-	# If you have selected "4 – Auto download and schedule the install" for your scheduled install day and specified a schedule, you also have the option to limit updating to a weekly, bi-weekly or monthly occurrence, using the options below: Every week
+	# If you have selected "4 - Auto download and schedule the install" for your scheduled install day and specified a schedule, you also have the option to limit updating to a weekly, bi-weekly or monthly occurrence, using the options below: Every week
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "ScheduledInstallEveryWeek" -Value 1 -Type DWord
 	# Install updates for other Microsoft products
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "AllowMUUpdateService" -Value 1 -Type DWord
@@ -169,7 +169,7 @@ New-GPO -Name "[SD] WindowsUpdate for users" | %{
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "ScheduledInstallDay" -Value 0 -Type DWord
 	# Install at 012:00 AM
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "ScheduledInstallTime" -Value 12 -Type DWord
-	# If you have selected "4 – Auto download and schedule the install" for your scheduled install day and specified a schedule, you also have the option to limit updating to a weekly, bi-weekly or monthly occurrence, using the options below: Every week
+	# If you have selected "4 - Auto download and schedule the install" for your scheduled install day and specified a schedule, you also have the option to limit updating to a weekly, bi-weekly or monthly occurrence, using the options below: Every week
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "ScheduledInstallEveryWeek" -Value 1 -Type DWord
 	# Install updates for other Microsoft products
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "AllowMUUpdateService" -Value 1 -Type DWord
@@ -177,11 +177,10 @@ New-GPO -Name "[SD] WindowsUpdate for users" | %{
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "IncludeRecommendedUpdates" -Value 1 -Type DWord
 }
 
-GPO_reg "[SD][Hardening] Machine Password Rotation" @{
-	'HKLM\System\CurrentControlSet\Services\Netlogon\Parameters'=@{
-		'DisablePasswordChange'=0;
-		'MaximumPasswordAge'=30;
-	}
+New-GPO -Name "[SD][Hardening] Machine Password Rotation" | %{
+	$key = 'HKLM\System\CurrentControlSet\Services\Netlogon\Parameters'
+	$_ | Set-GPRegistryValue -Key $key -ValueName "DisablePasswordChange" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key $key -ValueName "MaximumPasswordAge" -Value 30 -Type DWord
 }
 
 ###################################################################################################
@@ -191,15 +190,19 @@ New-GPO -Name "[SD] Unlimited Path length" | %{
 
 ###################################################################################################
 # NTLM hardening
-GPO_reg "[SD][Hardening] Network security: Restrict NTLM: Incoming/outgoing NTLM traffic" @{
-	'HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0'=@{
-		'RestrictReceivingNTLMTraffic'=2;
-		'RestrictSendingNTLMTraffic'=2;
-	};
-	'HKLM\System\CurrentControlSet\Control\Lsa'=@{
-		'LmCompatibilityLevel'=5;# 2.3.11.7 Ensure 'Network security: LAN Manager authentication level' is set to 'Send NTLMv2 response only. Refuse LM & NTLM'
-		#'UseMachineId'=1;# Network_security_Allow_Local_System_to_use_computer_identity_for_NTLM PROTECTION AGAINST COERCING/PETITPOTAM. FORCE USAGE OF KERBEROS
-	};
+New-GPO -Name "[SD][Hardening] Network security: Restrict NTLM: Incoming/outgoing NTLM traffic" | %{
+	$key = 'HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0'
+	# 0=>allow, 1=>audit, 2=>deny
+	$_ | Set-GPRegistryValue -Key $key -ValueName "RestrictReceivingNTLMTraffic" -Value 2 -Type DWord
+	$_ | Set-GPRegistryValue -Key $key -ValueName "RestrictSendingNTLMTraffic" -Value 2 -Type DWord
+
+	$key = 'HKLM\System\CurrentControlSet\Control\Lsa'
+	# 2.3.11.7 Ensure 'Network security: LAN Manager authentication level' is set to 'Send NTLMv2 response only. Refuse LM & NTLM'
+	$_ | Set-GPRegistryValue -Key $key -ValueName "LmCompatibilityLevel" -Value 5 -Type DWord
+	# Network_security_Allow_Local_System_to_use_computer_identity_for_NTLM PROTECTION AGAINST COERCING/PETITPOTAM. FORCE USAGE OF KERBEROS
+	#$_ | Set-GPRegistryValue -Key $key -ValueName "UseMachineId" -Value 1 -Type DWord
+
+
 	## 2.3.11.9 Ensure 'Network security: Minimum session security for NTLM SSP based (including secure RPC) clients' is set to 'Require NTLMv2 session security, Require 128-bit encryption'
 	#	  - 'r:HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Lsa\MSV1_0 -> NTLMMinClientSec -> 537395200'
 	## 2.3.11.10 Ensure 'Network security: Minimum session security for NTLM SSP based (including secure RPC) servers' is set to 'Require NTLMv2 session security, Require 128-bit encryption'
@@ -217,12 +220,15 @@ GPO_reg "[SD][Hardening] Network security: Restrict NTLM: Incoming/outgoing NTLM
 	#};
 }
 
-GPO_reg "[SD][Hardening] Encryption & sign communications" @{
-	'HKLM\System\CurrentControlSet\Services\Netlogon\Parameters'=@{
-		'RequireSignOrSeal'=1;# Domain_member_Digitally_encrypt_or_sign_secure_channel_data_always
-		'SealSecureChannel'=1;# Domain_member_Digitally_encrypt_secure_channel_data_when_possible
-		'SignSecureChannel'=1;# Domain_member_Digitally_sign_secure_channel_data_when_possible
-	};
+
+New-GPO -Name "[SD][Hardening] Encryption & sign communications" | %{
+	$key = 'HKLM\System\CurrentControlSet\Services\Netlogon\Parameters'
+	# Domain_member_Digitally_encrypt_or_sign_secure_channel_data_always
+	$_ | Set-GPRegistryValue -Key $key -ValueName "RequireSignOrSeal" -Value 1 -Type DWord
+	# Domain_member_Digitally_encrypt_secure_channel_data_when_possible
+	$_ | Set-GPRegistryValue -Key $key -ValueName "SealSecureChannel" -Value 1 -Type DWord
+	# Domain_member_Digitally_sign_secure_channel_data_when_possible
+	$_ | Set-GPRegistryValue -Key $key -ValueName "SignSecureChannel" -Value 1 -Type DWord
 }
 
 
@@ -247,24 +253,24 @@ New-GPO -Name "[SD][Hardening] LDAP client configuration" | %{
 
 ###################################################################################################
 # LDAP Server
-GPO_reg "[SD][Hardening] LDAP server configuration" @{
-	'HKLM\System\CurrentControlSet\Services\NTDS\Parameters'=@{
-		'LDAPServerIntegrity'=2;# Domain controller LDAP server signing requirements
-		'LdapEnforceChannelBinding'=2;# 18.3.5 (L1) Ensure 'Extended Protection for LDAP Authentication (Domain Controllers only)' is set to 'Enabled: Enabled, always (recommended)' (DC Only) (Scored)
-	};
+New-GPO -Name "[SD][Hardening] LDAP server configuration" | %{
+	$key = 'HKLM\System\CurrentControlSet\Services\NTDS\Parameters'
+	# Domain controller LDAP server signing requirements
+	$_ | Set-GPRegistryValue -Key $key -ValueName "LDAPServerIntegrity" -Value 2 -Type DWord
+	# 18.3.5 (L1) Ensure 'Extended Protection for LDAP Authentication (Domain Controllers only)' is set to 'Enabled: Enabled, always (recommended)' (DC Only) (Scored)
+	$_ | Set-GPRegistryValue -Key $key -ValueName "LdapEnforceChannelBinding" -Value 2 -Type DWord
 }
 
+
 ###################################################################################################
-GPO_reg "[SD][PasswordPolicy] Prompt user to change password before expiration 1 day before" @{
-	'HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon'=@{
-		'PasswordExpiryWarning'=1;
-	};
+New-GPO -Name "[SD][PasswordPolicy] Prompt user to change password before expiration 1 day before" | %{
+	$_ | Set-GPRegistryValue -Key 'HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon' -ValueName "PasswordExpiryWarning" -Value 1 -Type DWord
 }
-GPO_reg "[SD][Hardening] Auto lock session after 15min" @{
-	'HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System'=@{
-		'InactivityTimeoutSecs'=900;# 2.3.7.3 Interactive logon: Machine inactivity limit (Scored)
-	};
+New-GPO -Name "[SD][Hardening] Auto lock session after 15min" | %{
+	# 2.3.7.3 Interactive logon: Machine inactivity limit (Scored)
+	$_ | Set-GPRegistryValue -Key 'HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System' -ValueName "InactivityTimeoutSecs" -Value 900 -Type DWord
 }
+
 
 ###################################################################################################
 New-GPO -Name "[SD][Hardening] LSASS Protection (Mimikatz)" | %{
@@ -290,8 +296,21 @@ New-GPO -Name "[SD][Hardening] WIFI-Protection" | %{
 
 ###################################################################################################
 # Disable print spooler
+$inf = @'
+[Unicode]
+Unicode=yes
+[Version]
+signature="$CHICAGO$"
+Revision=1
+[Service General Setting]
+"Spooler",4,""
+'@
 New-GPO -Name "[SD][Hardening] Disable print spooler" | %{
 	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\Spooler" -ValueName "Start" -Value 4 -Type DWord
+	
+	$id = $_.Id.ToString()
+	mkdir "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit"
+	$inf > "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
 }
 
 ###################################################################################################
@@ -327,8 +346,10 @@ New-GPO -Name "[SD] LogSystem" | %{
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT\Channels\Microsoft-Windows-DNS-Client/Operational" -ValueName "Enabled" -Value 1 -Type DWord
 
 	# Audit incoming NTLM traffic: Enable auditing for all accounts
+	# to view => [System[(EventID=4624)]] and also Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-NTLM/Operational' ; Id = 8001,8002 }
 	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0" -ValueName "AuditReceivingNTLMTraffic" -Value 2 -Type DWord
 	# Audit NTLM Authentication in this domain: Enable all
+	# 0=>Disable, 1=>"Enable for domain accounts to domain servers", 2=>"Enable for domain accounts", 3=>"Enable for domain servers", 7=>"Enable all"
 	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\services\Netlogon\Parameters" -ValueName AuditNTLMInDomain -Value 7 -Type DWord
 	
 	$id = $_.Id.ToString()
@@ -338,54 +359,52 @@ New-GPO -Name "[SD] LogSystem" | %{
 
 ###################################################################################################
 # RDP hardening
-GPO_reg "[SD][Hardening] RDP server configuration" @{
-	'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'=@{
-		'KeepAliveInterval'=1;
-		# 18.9.59.3.11.1 (L1) Ensure 'Do not delete temp folders upon exit' is set to 'Disabled' (Scored)
-		'DeleteTempDirsOnExit'=1;
-		# 18.9.59.3.9.3 (L1) Ensure 'Require use of specific security layer for remote (RDP) connections' is set to 'Enabled: SSL' (Scored)
-		'SecurityLayer'=2;
-		# Require user authentication for remote connections by using Network Level Authentication
-		'UserAuthentication'=1;
-		'MaxIdleTime'=900000;
-		# 18.9.59.3.10.2 Ensure 'Set time limit for disconnected sessions' is set to 'Enabled: 15 minute'
-		'MaxDisconnectionTime'=900000;
-		'RemoteAppLogoffTimeLimit'=300000;
-		# Require secure RPC communication
-		'fEncryptRPCTraffic'=1;
-		# 18.9.59.3.9.5 (L1) Ensure 'Set client connection encryption level' is set to 'Enabled: High Level' (Scored)
-		'MinEncryptionLevel'=3;
-		# Client applications which use CredSSP will not be able to fall back to the insecure versions and services using CredSSP will not accept unpatched clients.
-		'AllowEncryptionOracle'=0;
-	};	
-	'HKLM\System\CurrentControlSet\Control\Lsa'=@{
-		# Network_access_Do_not_allow_storage_of_passwords_and_credentials_for_network_authentication
-		'DisableDomainCreds'=1;
-	};
+New-GPO -Name "[SD][Hardening] RDP server configuration" | %{
+	$key = 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+	$_ | Set-GPRegistryValue -Key $key -ValueName "KeepAliveInterval" -Value 1 -Type DWord
+	# 18.9.59.3.11.1 (L1) Ensure 'Do not delete temp folders upon exit' is set to 'Disabled' (Scored)
+	$_ | Set-GPRegistryValue -Key $key -ValueName "DeleteTempDirsOnExit" -Value 1 -Type DWord
+	# 18.9.59.3.9.3 (L1) Ensure 'Require use of specific security layer for remote (RDP) connections' is set to 'Enabled: SSL' (Scored)
+	$_ | Set-GPRegistryValue -Key $key -ValueName "SecurityLayer" -Value 2 -Type DWord
+	# Require user authentication for remote connections by using Network Level Authentication
+	$_ | Set-GPRegistryValue -Key $key -ValueName "UserAuthentication" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key $key -ValueName "MaxIdleTime" -Value 900000 -Type DWord
+	# 18.9.59.3.10.2 Ensure 'Set time limit for disconnected sessions' is set to 'Enabled: 15 minute'
+	$_ | Set-GPRegistryValue -Key $key -ValueName "MaxDisconnectionTime" -Value 900000 -Type DWord
+	$_ | Set-GPRegistryValue -Key $key -ValueName "RemoteAppLogoffTimeLimit" -Value 300000 -Type DWord
+	# Require secure RPC communication
+	$_ | Set-GPRegistryValue -Key $key -ValueName "fEncryptRPCTraffic" -Value 1 -Type DWord
+	# 18.9.59.3.9.5 (L1) Ensure 'Set client connection encryption level' is set to 'Enabled: High Level' (Scored)
+	$_ | Set-GPRegistryValue -Key $key -ValueName "MinEncryptionLevel" -Value 3 -Type DWord	
+	# Client applications which use CredSSP will not be able to fall back to the insecure versions and services using CredSSP will not accept unpatched clients.
+	$_ | Set-GPRegistryValue -Key $key -ValueName "AllowEncryptionOracle" -Value 0 -Type DWord
+
+	$key = 'HKLM\System\CurrentControlSet\Control\Lsa'
+	# Network_access_Do_not_allow_storage_of_passwords_and_credentials_for_network_authentication
+	$_ | Set-GPRegistryValue -Key $key -ValueName "DisableDomainCreds" -Value 1 -Type DWord
 }
 
 ###################################################################################################
 # SMB server - FileServer
-GPO_reg "[SD][Hardening] SMB server - FileServer configuration" @{
-	'HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters'=@{
-		'SMB1'=0;
-		'EnableSecuritySignature'=1;
-		# 2.3.9.2 Ensure 'Microsoft network server: Digitally sign communications (always)' is set to 'Enabled'
-		'RequireSecuritySignature'=1;
-		'AutoShareWks'=0;
-		'AutoShareServer'=0;
-		# Microsoft_network_server_Amount_of_idle_time_required_before_suspending_session
-		'AutoDisconnect'=60;
-		# Network_access_Shares_that_can_be_accessed_anonymously
-		'RestrictNullSessAccess'=1;
-	};
-	'HKLM\System\CurrentControlSet\Services\Rdr\Parameters'=@{
-		'EnableSecuritySignature'=1;
-		'RequireSecuritySignature'=1;
-	};
-	'HKLM\SOFTWARE\Policies\Microsoft\Windows\LanmanWorkstation'=@{
-		'AllowInsecureGuestAuth'=0;
-	}
+New-GPO -Name "[SD][Hardening] SMB server - FileServer configuration" | %{
+	$key = 'HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters'
+	$_ | Set-GPRegistryValue -Key $key -ValueName "SMB1" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key $key -ValueName "EnableSecuritySignature" -Value 1 -Type DWord
+	# 2.3.9.2 Ensure 'Microsoft network server: Digitally sign communications (always)' is set to 'Enabled'
+	$_ | Set-GPRegistryValue -Key $key -ValueName "RequireSecuritySignature" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key $key -ValueName "AutoShareWks" -Value 0 -Type DWord
+	$_ | Set-GPRegistryValue -Key $key -ValueName "AutoShareServer" -Value 0 -Type DWord
+	# Microsoft_network_server_Amount_of_idle_time_required_before_suspending_session
+	$_ | Set-GPRegistryValue -Key $key -ValueName "AutoDisconnect" -Value 60 -Type DWord
+	# Network_access_Shares_that_can_be_accessed_anonymously
+	$_ | Set-GPRegistryValue -Key $key -ValueName "RestrictNullSessAccess" -Value 1 -Type DWord
+
+	$key = 'HKLM\System\CurrentControlSet\Services\Rdr\Parameters'
+	$_ | Set-GPRegistryValue -Key $key -ValueName "EnableSecuritySignature" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key $key -ValueName "RequireSecuritySignature" -Value 1 -Type DWord
+
+	$key = 'HKLM\SOFTWARE\Policies\Microsoft\Windows\LanmanWorkstation'
+	$_ | Set-GPRegistryValue -Key $key -ValueName "AllowInsecureGuestAuth" -Value 0 -Type DWord
 }
 
 
@@ -403,6 +422,10 @@ New-GPO -Name "[SD][Hardening] SMB client configuration" | %{
 ###################################################################################################
 New-GPO -Name "[SD][Hardening] Bitlocker" | %{
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "ActiveDirectoryBackup" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "OSActiveDirectoryBackup" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "FDVActiveDirectoryBackup" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "RDVActiveDirectoryBackup" -Value 1 -Type DWord
+	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "OSRecovery" -Value 1 -Type DWord
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "RequireActiveDirectoryBackup" -Value 1 -Type DWord
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "ActiveDirectoryInfoToStore" -Value 1 -Type DWord
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\FVE" -ValueName "EncryptionMethodWithXtsOs" -Value 7 -Type DWord
@@ -474,8 +497,18 @@ New-GPO -Name "[SD][Priv] Groups allowed to link new computers to the domain (PR
 	$id = $_.Id.ToString()
 	mkdir "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit"
 	$inf > "C:\Windows\SYSVOL\domain\Policies\{$id}\Machine\Microsoft\Windows NT\SecEdit\GptTmpl.inf"
-
 }
+# Add manualy the group or users allowed to add machine
+# Group Policy Management Console (gpmc.msc) > Domain Controllers OU > Domain Controllers Policy > Computer Configuration > Policies > Windows Settings > Security Settings > Local Policies > User Rights Assigments > Add workstations to domain
+# And https://www.appuntidallarete.com/you-have-exceeded-the-maximum-number-of-computer-accounts/
+# https://www.moderndeployment.com/correct-domain-join-account-permissions/
+# Avoid machine added by users
+Set-ADDomain (Get-ADDomain).distinguishedname -Replace @{"ms-ds-MachineAccountQuota"="0"}
+# Check if 0
+Get-ADObject ((Get-ADDomain).distinguishedname) -Properties ms-DS-MachineAccountQuota
+# List all creators
+Get-ADComputer -Filter * -Properties ms-DS-CreatorSID | Where-Object -FilterScript { $_."ms-DS-CreatorSID" -ne $Null } | Format-Table -AutoSize -Property Name,@{Label='User';Expression={(New-Object System.Security.Principal.SecurityIdentifier($_."mS-DS-CreatorSID".Value)).Translate([System.Security.Principal.NTAccount]).Value}}
+
 
 ###############################################################################
 # [Priv] Allow session for groups PRIV_INTERACT_WORKSTATION,PRIV_LOCAL_ADM
@@ -551,7 +584,7 @@ signature="$CHICAGO$"
 Revision=1
 [Group Membership]
 *S-1-5-32-544__Memberof =
-*S-1-5-32-544__Members = *S-1-5-114,*$UID__PRIV_LOCAL_ADM
+*S-1-5-32-544__Members = *$UID__PRIV_LOCAL_ADM
 "@
 New-GPO -Name "[SD][Priv] AdminLocal for group PRIV_LOCAL_ADM" | %{
 	$id = $_.Id.ToString()
@@ -634,7 +667,7 @@ New-GPOSchTask -GPOName "[SD][GPO] FW-ClearlocalRuleThatDoesntContain[SD]" -Task
 
 # Enable localfirewall
 New-GPOSchTask -GPOName "[SD][FW] Enable-and-Log-ALLOW-VPN-ADMIN" -TaskName "[SD][FW] Enable-and-Log-ALLOW-VPN-ADMIN" -TaskType ImmediateTask -Command 'cmd.exe' -CommandArguments '/C "mkdir %windir%\system32\logfiles\firewall 2>NUL"'
-$GpoSessionName = Open-NetGPO –PolicyStore ("{0}\[SD][FW] Enable-and-Log-ALLOW-VPN-ADMIN" -f $env:USERDNSDOMAIN)
+$GpoSessionName = Open-NetGPO -PolicyStore ("{0}\[SD][FW] Enable-and-Log-ALLOW-VPN-ADMIN" -f $env:USERDNSDOMAIN)
 Set-NetFirewallProfile -GPOSession $GpoSessionName -PolicyStore "[SD][FW] Enable-and-Log-ALLOW-VPN-ADMIN" -All -Enabled True -NotifyOnListen False -DefaultOutboundAction Allow -DefaultInboundAction Block -AllowInboundRules True -AllowLocalFirewallRules False -AllowLocalIPsecRules True -AllowUnicastResponseToMulticast True -LogAllowed True -LogBlocked True -LogIgnored False -LogFileName "%windir%\system32\logfiles\firewall\pfirewall.log" -LogMaxSizeKilobytes 32767
 Save-NetGPO -GPOSession $GpoSessionName
 FWRule @{
