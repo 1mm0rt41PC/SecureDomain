@@ -1,11 +1,11 @@
-## With bloodhound you can spot week acl between users / computers
-## Week ACL between users
+## With bloodhound you can spot weak acl between users / computers
+## Weak ACL between users
 # MATCH p=(u1:User)-[r:AllExtendedRights|AddMember|ForceChangePassword|GenericAll|GenericWrite|Owns|WriteDacl|WriteOwner|AddSelf|WriteSPN|AddKeyCredentialLink*1..]->(u2:User) WHERE NOT(u1.name CONTAINS "MSOL_") RETURN p LIMIT 200
-## Week ACL between computers
+## Weak ACL between computers
 # MATCH p=(u1:Computer)-[r:AllExtendedRights|AddMember|ForceChangePassword|GenericAll|GenericWrite|Owns|WriteDacl|WriteOwner|AddSelf|WriteSPN|AddKeyCredentialLink*1..]->(u2:Computer) WHERE NOT(u1.name CONTAINS "MSOL_") RETURN p LIMIT 200
-## Week ACL users to computers
+## Weak ACL users to computers
 # MATCH p=(u1:User)-[r:AllExtendedRights|AddMember|ForceChangePassword|GenericAll|GenericWrite|Owns|WriteDacl|WriteOwner|AddSelf|WriteSPN|AddKeyCredentialLink*1..]->(u2:Computer) WHERE NOT(u1.name CONTAINS "MSOL_") RETURN p LIMIT 200
-## Week ACL computers to users
+## Weak ACL computers to users
 # MATCH p=(u1:Computer)-[r:AllExtendedRights|AddMember|ForceChangePassword|GenericAll|GenericWrite|Owns|WriteDacl|WriteOwner|AddSelf|WriteSPN|AddKeyCredentialLink*1..]->(u2:User) WHERE NOT(u1.name CONTAINS "MSOL_") RETURN p LIMIT 200
 ## All strange direct ACLs
 # MATCH p=(u1)-[r:AllExtendedRights|AddMember|ForceChangePassword|GenericAll|GenericWrite|Owns|WriteDacl|WriteOwner|AddSelf|WriteSPN|AddKeyCredentialLink*1..]->(u2) WHERE NOT(u1.name CONTAINS "MSOL_") AND NOT(u2.name CONTAINS "MSOL_") AND NOT(u1.name CONTAINS "ADMIN") AND NOT(u2.name CONTAINS "ADMIN") RETURN p LIMIT 200
@@ -154,7 +154,7 @@ function isAdGroup( $sUser )
 .PARAMETER funcTester
     Function to use to check ACLs
 #>
-function removeWeekAcl_fromUsers( $obj, $modePreview=$true, $funcTester='isAdUser' )
+function removeWeakAcl_fromUsers( $obj, $modePreview=$true, $funcTester='isAdUser' )
 {
 	$comppath = $obj.DistinguishedName.ToString()
 	$comppath = "AD:$comppath"
@@ -186,26 +186,26 @@ function removeWeekAcl_fromUsers( $obj, $modePreview=$true, $funcTester='isAdUse
 # Let's clean up this AD
 Get-ADComputer -Filter * | foreach {
 	Write-Host "Analyzing $($_.Name)"
-	removeWeekAcl_fromUsers $_ $testMode 'isAdUser'
-	removeWeekAcl_fromUsers $_ $testMode 'isAdComputer'
+	removeWeakAcl_fromUsers $_ $testMode 'isAdUser'
+	removeWeakAcl_fromUsers $_ $testMode 'isAdComputer'
 	setOwnerToDA $_ $testMode
 }
 Get-ADOrganizationalUnit -Filter * | foreach {
 	Write-Host "Analyzing $($_.Name)"
-	removeWeekAcl_fromUsers $_ $testMode 'isAdUser'
-	removeWeekAcl_fromUsers $_ $testMode 'isAdComputer'
+	removeWeakAcl_fromUsers $_ $testMode 'isAdUser'
+	removeWeakAcl_fromUsers $_ $testMode 'isAdComputer'
 	setOwnerToDA $_ $testMode
 }
 
 Get-ADUser -Filter * | foreach {
 	Write-Host "Analyzing $($_.Name)"
-	removeWeekAcl_fromUsers $_ $testMode 'isAdUser'
-	removeWeekAcl_fromUsers $_ $testMode 'isAdComputer'
+	removeWeakAcl_fromUsers $_ $testMode 'isAdUser'
+	removeWeakAcl_fromUsers $_ $testMode 'isAdComputer'
 	setOwnerToDA $_ $testMode
 }
 Get-ADGroup -Filter * | foreach {
 	Write-Host "Analyzing $($_.Name)"
-	removeWeekAcl_fromUsers $_ $testMode 'isAdUser'
-	removeWeekAcl_fromUsers $_ $testMode 'isAdComputer'
+	removeWeakAcl_fromUsers $_ $testMode 'isAdUser'
+	removeWeakAcl_fromUsers $_ $testMode 'isAdComputer'
 	setOwnerToDA $_ $testMode
 }
