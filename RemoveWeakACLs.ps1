@@ -46,6 +46,17 @@ $stringNameDA = $domainAdmins.Translate( [System.Security.Principal.NTAccount]).
 #>
 function setOwnerToDA( $obj, $modePreview=$true )
 {
+	# Test if it is a GPO
+    if( $obj.GetType().Name -eq "Gpo" ){
+       	$displayName = $obj.DisplayName
+       	if( $obj.Owner -eq $stringNameDA -or $obj.Owner.StartsWith("BUILTIN\") -or $obj.Owner.StartsWith("AUTORITE NT\") -or $obj.Owner.StartsWith("NT AUTHORITY\") ){
+           		return ;
+       	}
+       	[String]$SearchBase = "CN=Policies,CN=System," + $((Get-ADDomain).DistinguishedName);
+       	$obj = Get-ADObject -Filter $('DisplayName -like "' + $obj.Name +'"') -SearchBase $Searchbase -SearchScope subtree
+       	$obj.Item('Name').Value = $displayName + "("+ $obj.Name +")"   
+    }
+     
 	$comppath = $obj.DistinguishedName.ToString()
 	$comppath = "AD:$comppath"
 	$acl = Get-Acl -Path $comppath
@@ -184,12 +195,14 @@ function removeWeakAcl_fromUsers( $obj, $modePreview=$true, $funcTester='isAdUse
 ########################################################
 
 # Let's clean up this AD
+Write-Host "=== Computers ==="
 Get-ADComputer -Filter * | foreach {
 	Write-Host "Analyzing $($_.Name)"
 	removeWeakAcl_fromUsers $_ $testMode 'isAdUser'
 	removeWeakAcl_fromUsers $_ $testMode 'isAdComputer'
 	setOwnerToDA $_ $testMode
 }
+Write-Host "=== Organizational Unit ==="
 Get-ADOrganizationalUnit -Filter * | foreach {
 	Write-Host "Analyzing $($_.Name)"
 	removeWeakAcl_fromUsers $_ $testMode 'isAdUser'
@@ -197,15 +210,25 @@ Get-ADOrganizationalUnit -Filter * | foreach {
 	setOwnerToDA $_ $testMode
 }
 
+Write-Host "=== Users ==="
 Get-ADUser -Filter * | foreach {
 	Write-Host "Analyzing $($_.Name)"
 	removeWeakAcl_fromUsers $_ $testMode 'isAdUser'
 	removeWeakAcl_fromUsers $_ $testMode 'isAdComputer'
 	setOwnerToDA $_ $testMode
 }
+
+Write-Host "=== Groups ==="
 Get-ADGroup -Filter * | foreach {
 	Write-Host "Analyzing $($_.Name)"
 	removeWeakAcl_fromUsers $_ $testMode 'isAdUser'
 	removeWeakAcl_fromUsers $_ $testMode 'isAdComputer'
 	setOwnerToDA $_ $testMode
+}
+
+Write-Host "=== GPO ==="
+Get-GPO -all | foreach {
+    $_ | Add-Member -MemberType NoteProperty -Name Name -Value $_.DisplayName
+    Write-Host "Analyzing $($_.Name)"
+    setOwnerToDA $_ $testMode
 }
