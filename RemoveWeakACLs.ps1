@@ -28,7 +28,12 @@ Get-ADComputer -Filter * | Select-Object Name, @{Label="Owner";Expression={(get-
 # Get the name of the group administrators of the domain internationally
 $domainAdmins = New-Object System.Security.Principal.SecurityIdentifier(((Get-ADDomain).DomainSID.Value)+"-512")
 $stringNameDA = $domainAdmins.Translate( [System.Security.Principal.NTAccount]).Value
-
+#
+$enterpriseAdmins = New-Object System.Security.Principal.SecurityIdentifier(((Get-ADDomain).DomainSID.Value)+"-519")
+$stringNameEA = $enterpriseAdmins.Translate( [System.Security.Principal.NTAccount]).Value
+#
+$builtinAdmins = New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")
+$stringbuiltinAdmins = $builtinAdmins.Translate( [System.Security.Principal.NTAccount]).Value
 
 ########################################################
 <#
@@ -49,7 +54,7 @@ function setOwnerToDA( $obj, $modePreview=$true )
 	# Test if it is a GPO
     if( $obj.GetType().Name -eq "Gpo" ){
        	$displayName = $obj.DisplayName
-       	if( $obj.Owner -eq $stringNameDA -or $obj.Owner.StartsWith("BUILTIN\") -or $obj.Owner.StartsWith("AUTORITE NT\") -or $obj.Owner.StartsWith("NT AUTHORITY\") ){
+       	if( $obj.Owner -eq $stringNameDA -or $obj.Owner -eq $stringNameEA -or $obj.Owner -eq $stringbuiltinAdmins -or $obj.Owner.StartsWith("BUILTIN\") -or $obj.Owner.StartsWith("AUTORITE NT\") -or $obj.Owner.StartsWith("NT AUTHORITY\") ){
            		return ;
        	}
        	[String]$SearchBase = "CN=Policies,CN=System," + $((Get-ADDomain).DistinguishedName);
@@ -60,7 +65,7 @@ function setOwnerToDA( $obj, $modePreview=$true )
 	$comppath = $obj.DistinguishedName.ToString()
 	$comppath = "AD:$comppath"
 	$acl = Get-Acl -Path $comppath
-	if( $acl.Owner -eq $stringNameDA -or $acl.Owner.StartsWith("BUILTIN\") -or $acl.Owner.StartsWith("AUTORITE NT\") -or $acl.Owner.StartsWith("NT AUTHORITY\") ){
+	if( $obj.Owner -eq $stringNameDA -or $obj.Owner -eq $stringNameEA -or $obj.Owner -eq $stringbuiltinAdmins -or $acl.Owner.StartsWith("BUILTIN\") -or $acl.Owner.StartsWith("AUTORITE NT\") -or $acl.Owner.StartsWith("NT AUTHORITY\") ){
 		return ;
 	}
 	if( $modePreview ){
