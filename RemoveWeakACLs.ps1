@@ -65,7 +65,7 @@ function setOwnerToDA( $obj, $modePreview=$true )
 	$comppath = $obj.DistinguishedName.ToString()
 	$comppath = "AD:$comppath"
 	$acl = Get-Acl -Path $comppath
-	if( $obj.Owner -eq $stringNameDA -or $obj.Owner -eq $stringNameEA -or $obj.Owner -eq $stringbuiltinAdmins -or $acl.Owner.StartsWith("BUILTIN\") -or $acl.Owner.StartsWith("AUTORITE NT\") -or $acl.Owner.StartsWith("NT AUTHORITY\") ){
+	if( $acl.Owner -eq $stringNameDA -or $acl.Owner -eq $stringNameEA -or $acl.Owner -eq $stringbuiltinAdmins -or $acl.Owner.StartsWith("BUILTIN\") -or $acl.Owner.StartsWith("AUTORITE NT\") -or $acl.Owner.StartsWith("NT AUTHORITY\") ){
 		return ;
 	}
 	if( $modePreview ){
