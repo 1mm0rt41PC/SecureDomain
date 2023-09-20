@@ -73,7 +73,7 @@ function setOwnerToDA( $obj, $modePreview=$true )
 	}else{
 		Write-Host -BackgroundColor DarkGreen "PreviewMode disabled ! CHANGING ACLs !"
 	}
-	Write-Host "Changing owner of $($obj.Name) from $($acl.Owner) to $stringNameDA"
+	Write-Host "Changing owner of $($obj.DistinguishedName) from $($acl.Owner) to $stringNameDA"
 	if( $modePreview -eq $false ){
 		$acl.SetOwner($domainAdmins)
 		Set-Acl -Path $comppath -AclObject $acl
