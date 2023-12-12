@@ -1,0 +1,817 @@
+<html><head>
+	<title></title>
+<style type="text/css">
+form {
+	margin-top: 3em;
+	display: none;
+}
+
+form > div {
+	border: 1px solid #000000;
+	margin-bottom: 3em;
+}
+
+div > label {
+	font-weight: bolder;
+}
+div > .comment {
+	margin-left: 10em;
+}
+code {
+	display: block;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 10pt;
+	overflow-x: auto;
+	padding: 0.5em;
+	scrollbar-width: thin;
+	-moz-tab-size: 4;
+	tab-size: 4;
+}
+pre code.hljs {
+  /* compatible with school-book */
+  padding: 16px 30px 20px;
+}
+</style>
+
+<link rel="stylesheet" title="Base16 / Tomorrow Night" href="/js/styles/default.min.css" />
+<link rel="stylesheet" href="/js/styles/base16/tomorrow-night.min.css" />
+<script type="text/javascript" src="/js/highlight.min.js"></script>
+<script type="text/javascript" src="/js/languages/powershell.min.js"></script>
+
+
+</head><body>
+<div>
+	<input id="prefix" type="text" style="width:50%;" value="1mm0rt41" placeholder="Prefix of GPO" />
+</div>
+<pre><code class="powershell hljs language-powershell" id="release"></code></pre><br />
+<script type="text/javascript">
+var gpoYamlRules={
+    "__main__": {
+        "GlobalScript": {
+            "Script": "$IPForInternet=@('1.0.0.0-9.255.255.255',\n'11.0.0.0-100.63.255.255',\n'100.128.0.0-126.255.255.255',\n'128.0.0.0-169.253.255.255',\n'169.255.0.0-172.15.255.255',\n'172.32.0.0-191.255.255.255',\n'192.0.1.0-192.0.1.255',\n'192.0.3.0-192.167.255.255',\n'192.169.0.0-198.17.255.255',\n'198.20.0.0-198.51.99.255',\n'198.51.101.0-203.0.112.255',\n'203.0.114.0-255.255.255.254')\n"
+        }
+    },
+    "DomainController_Config": {
+        "CreateOU": {
+            "Script": "New-ADOrganizationalUnit -Name \"_AllUsers\" -Path \"$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"_CriticalUsers\" -Path \"$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"__DomainAdministrators__\" -Path \"OU=_CriticalUsers,$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"__LocalAdministrators__\" -Path \"OU=_CriticalUsers,$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"ALL\" -Path \"OU=__LocalAdministrators__,OU=_CriticalUsers,$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"DBA\" -Path \"OU=__LocalAdministrators__,OU=_CriticalUsers,$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"__EXTERNAL__\" -Path \"OU=_AllUsers,$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"__Groups__\" -Path \"OU=_AllUsers,$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"_AllComputers\" -Path \"$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"Laptops\" -Path \"OU=_AllComputers,$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"Workstations\" -Path \"OU=_AllComputers,$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"Servers\" -Path \"OU=_AllComputers,$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"Database\" -Path \"OU=Servers,OU=_AllComputers,$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"DHCP\" -Path \"OU=Servers,OU=_AllComputers,$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"DNS\" -Path \"OU=Servers,OU=_AllComputers,$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"FileServer\" -Path \"OU=Servers,OU=_AllComputers,$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"IIS-HTTP\" -Path \"OU=Servers,OU=_AllComputers,$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"ServerWithJobInBackgroundWithoutOpenPort\" -Path \"OU=Servers,OU=_AllComputers,$LDAP_DN\"\nNew-ADOrganizationalUnit -Name \"TerminalServer\" -Path \"OU=Servers,OU=_AllComputers,$LDAP_DN\"\nredircmp \"OU=_AllComputers,$LDAP_DN\"\nredirusr \"OU=_AllUsers,$LDAP_DN\"\n"
+        },
+        "CreateBasicGroups": {
+            "Script": "New-ADGroup -Name PRIV_DBA_ADMIN -Path \"OU=_CriticalUsers,$LDAP_DN\" -GroupCategory Security -GroupScope DomainLocal\nNew-ADGroup -Name PRIV_INTERACT_LAPTOP -Path \"OU=_AllUsers,$LDAP_DN\" -GroupCategory Security -GroupScope DomainLocal\nNew-ADGroup -Name PRIV_INTERACT_WORKSTATION -Path \"OU=_AllUsers,$LDAP_DN\" -GroupCategory Security -GroupScope DomainLocal\nNew-ADGroup -Name PRIV_LOCAL_ADM -Path \"OU=_CriticalUsers,$LDAP_DN\" -GroupCategory Security -GroupScope DomainLocal\nNew-ADGroup -Name PRIV_ENROLL_MACHINE -Path \"OU=_CriticalUsers,$LDAP_DN\" -GroupCategory Security -GroupScope DomainLocal\n"
+        },
+        "Enable the Recycle Bin": {
+            "Script": "Import-Module ActiveDirectory\nEnable-ADOptionalFeature -Identity \"CN=Recycle Bin Feature,CN=Optional Features,CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration,$LDAP_DN\" -Scope ForestOrConfigurationSet -Target \"$domain\" -Confirm:$false\n"
+        },
+        "Install 'BitLocker recovery tab'": {
+            "Script": "Install-WindowsFeature RSAT-Feature-Tools-BitLocker-BdeAducExt\n"
+        },
+        "Password policy": {
+            "Script": "$Policies= @{\n    Identity=$env:UserDomain;\n    LockoutDuration='00:30:00';\n    LockoutThreshold=5;\n    LockoutObservationWindow='00:20:00';\n    ComplexityEnabled=$true;\n    ReversibleEncryptionEnabled=$False;\n    MaxPasswordAge='180.00:00:00';\n    MinPasswordLength=15;\n    PasswordHistoryCount=10;\n}\nSet-ADDefaultDomainPasswordPolicy @Policies\n"
+        },
+        "Enable-Advenced-AD-Password-Protection": {
+            "Script": "# https://blog.lithnet.io/2019/01/lppad-1.html\ncurl.exe -L https://github.com/lithnet/ad-password-protection/releases/latest/download/Lithnet.ActiveDirectory.PasswordProtection.msi --output Lithnet.ActiveDirectory.PasswordProtection.msi\n/quiet /qn ALLUSERS=2 \nmsiexec.exe /i Lithnet.ActiveDirectory.PasswordProtection.msi /quiet /qn /norestart REBOOT=ReallySuppress ALLUSERS=2 \n# Download the latest version of the NTLM passwords from the haveibeenpwned.com pwned password list (scroll to the end). Make sure you get the \"NTLM Ordered by hash\" version. Use the torrent link if you are able to so, as this helps minimize bandwidth and costs. Uncompress the file, and place it on your server to import later in the process.\ncurl.exe -L https://downloads.pwnedpasswords.com/passwords/pwned-passwords-ntlm-ordered-by-hash-v8.7z --output hash.7z\n7z x hash.7z\nImport-Module LithnetPasswordProtection\nOpen-Store 'C:\\Program Files\\Lithnet\\Active Directory Password Protection\\Store'\nImport-CompromisedPasswordHashes -Filename hash\\pwned-passwords-ntlm-ordered-by-hash-*.txt\n"
+        },
+        "Admin account cannot be delegated": {
+            "Script": "$UID__DOMAIN = (Get-ADDomain).DomainSID.Value\n# DomainAdmin=512, EnterpriseAdmin=519, AccountOperator=548, BackupOperator=551, PrintOperator=550, Replicator=552, SchemaAdministrators=518\n# Admin account cannot be delegated\n@(512,519,548,551,550,552,518) | foreach {\n    $grp = Get-ADGroup -Filter \"SID -eq '$UID__DOMAIN-$_' -or SID -eq 'S-1-5-32-$_'\"\n    Write-Host \"Set account cannot be delegated in >$($grp.Name)<\"\n    $target = $grp | Get-ADGroupMember -Recursive | Get-ADUser -Properties AccountNotDelegated | Where-Object {-not $_.AccountNotDelegated -and $_.objectClass -eq 'user'}\n    $target | Select distinguishedName,SamAccountName,AccountNotDelegated\n    $target | Set-ADUser -AccountNotDelegated $true\n}\n$grp = Get-ADGroup DnsAdmins\nWrite-Host \"Set account cannot be delegated in >$($grp.Name)<\"\n$target = $grp | Get-ADGroupMember -Recursive | Get-ADUser -Properties AccountNotDelegated | Where-Object {-not $_.AccountNotDelegated -and $_.objectClass -eq 'user'}\n$target | Select distinguishedName,SamAccountName,AccountNotDelegated\n$target | Set-ADUser -AccountNotDelegated $true            \n"
+        },
+        "Split DC FSMO role": {
+            "Script": "Write-Host \"Doc: https://activedirectorypro.com/transfer-fsmo-roles/\"\n$LDAP_DN = ( [ADSI]\"LDAP://RootDSE\" ).defaultNamingContext.Value\nWrite-Warning \"Current FSMO\"\nnetdom query fsmo\n$dc = Get-ADComputer -Filter * -SearchBase \"OU=Domain Controllers,$LDAP_DN\" | where { $_.Enabled -eq $true }\nif( $dc.Count -gt 1 ){\n    Move-ADDirectoryServerOperationMasterRole -Identity $dc[(0)%$dc.Count].Name PDCEmulator\n    Move-ADDirectoryServerOperationMasterRole -Identity $dc[(1)%$dc.Count].Name RIDMaster\n    Move-ADDirectoryServerOperationMasterRole -Identity $dc[(2)%$dc.Count].Name Infrastructuremaster\n    Move-ADDirectoryServerOperationMasterRole -Identity $dc[(3)%$dc.Count].Name DomainNamingmaster\n    Move-ADDirectoryServerOperationMasterRole -Identity $dc[(4)%$dc.Count].Name SchemaMaster\n    Write-Warning \"New FSMO\"\n    netdom query fsmo\n}else{\n    Write-Warning \"Unable to change FSMO ! Not Enough server\"\n}\n"
+        },
+        "Set timezone to W. Europe Standard Time": {
+            "ShortPrefix": "GPO,Computer&User",
+            "Script": "tzutil /s 'W. Europe Standard Time'\nreg add \"HKCU\\Control Panel\\International\" /v sLongDate /d \"dddd, MMMM d, yyyy\" /t REG_SZ /f\nreg add \"HKCU\\Control Panel\\International\" /v sShortDate /d \"MM/dd/yyyy\" /t REG_SZ /f\nreg add \"HKCU\\Control Panel\\International\" /v sShortTime /d \"HH:mm\" /t REG_SZ /f\nreg add \"HKCU\\Control Panel\\International\" /v sTimeFormat /d \"HH:mm:ss\" /t REG_SZ /f\nreg add \"HKCU\\Control Panel\\International\" /v sYearMonth /d \"MMMM yyyy\" /t REG_SZ /f\nreg add \"HKCU\\Control Panel\\International\" /v iFirstDayOfWeek /d \"0\" /t REG_SZ /f\n\nreg add \"HKEY_USERS\\.DEFAULT\\Control Panel\\International\" /v sLongDate /d \"dddd, MMMM d, yyyy\" /t REG_SZ /f\nreg add \"HKEY_USERS\\.DEFAULT\\Control Panel\\International\" /v sShortDate /d \"MM/dd/yyyy\" /t REG_SZ /f\nreg add \"HKEY_USERS\\.DEFAULT\\Control Panel\\International\" /v sShortTime /d \"HH:mm\" /t REG_SZ /f\nreg add \"HKEY_USERS\\.DEFAULT\\Control Panel\\International\" /v sTimeFormat /d \"HH:mm:ss\" /t REG_SZ /f\nreg add \"HKEY_USERS\\.DEFAULT\\Control Panel\\International\" /v sYearMonth /d \"MMMM yyyy\" /t REG_SZ /f\nreg add \"HKEY_USERS\\.DEFAULT\\Control Panel\\International\" /v iFirstDayOfWeek /d \"0\" /t REG_SZ /f\n",
+            "Hive": {
+                "HKCU\\Control Panel\\International": {
+                    "sLongDate": "ExpandString:dddd, MMMM d, yyyy",
+                    "sShortDate": "ExpandString:MM/dd/yyyy",
+                    "sShortTime": "ExpandString:HH:mm",
+                    "sTimeFormat": "ExpandString:HH:mm:ss",
+                    "sYearMonth": "ExpandString:MMMM yyyy",
+                    "iFirstDayOfWeek": "ExpandString:0"
+                },
+                "HKLM\\Control Panel\\International": {
+                    "sLongDate": "ExpandString:dddd, MMMM d, yyyy",
+                    "sShortDate": "ExpandString:MM/dd/yyyy",
+                    "sShortTime": "ExpandString:HH:mm",
+                    "sTimeFormat": "ExpandString:HH:mm:ss",
+                    "sYearMonth": "ExpandString:MMMM yyyy",
+                    "iFirstDayOfWeek": "ExpandString:0"
+                }
+            }
+        },
+        "Force DC to switch on Domain Profile Firewall": {
+            "Comment": "To force firewall profile to domain for DC",
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\SYSTEM\\CurrentControlSet\\Services\\nlasvc": {
+                    "Start": "DWord:2",
+                    "DelayedAutostart": "DWord:1"
+                }
+            },
+            "GPLink": "OU=Domain Controllers,$LDAP_DN"
+        },
+        "PingCastle-fix-PreWin2000Other": {
+            "Script": "# SamAccountName\t: Acc\u00c3\u00a8s compatible pr\u00c3\u00a9-Windows 2000\n# SID\t\t\t   : S-1-5-32-554\n$preWin200 = Get-ADGroup -Filter * | where { $_.SID -eq 'S-1-5-32-554' }\n$preWin200 | get-ADGroupMember | foreach { $preWin200 | Remove-ADGroupMember -Members $_.SamAccountName }\n"
+        },
+        "Block PetitPotam": {
+            "Script": "$rr = (netsh rpc filter show filter).Replace(' ','') ;\nif( -not ($rr -Like \"*c681d488*\" -Or $rr -Like \"*df1941c5*\") ){\n    @'\nrpc\nfilter\nadd rule layer=um actiontype=permit\nadd condition field=if_uuid matchtype=equal data=c681d488-d850-11d0-8c52-00c04fd90f7e\nadd condition field=remote_user_token matchtype=equal data=D:(A;;CC;;;DA)\nadd filter\nadd rule layer=um actiontype=block\nadd condition field=if_uuid matchtype=equal data=c681d488-d850-11d0-8c52-00c04fd90f7e\nadd filter\nadd rule layer=um actiontype=permit\nadd condition field=if_uuid matchtype=equal data=df1941c5-fe89-4e79-bf10-463657acf44d\nadd condition field=remote_user_token matchtype=equal data=D:(A;;CC;;;DA)\nadd filter\nadd rule layer=um actiontype=block\nadd condition field=if_uuid matchtype=equal data=df1941c5-fe89-4e79-bf10-463657acf44d\nadd filter\nquit\n'@ | Out-File -Encoding ASCII C:\\Windows\\Temp\\rr.txt\n    netsh -f C:\\Windows\\Temp\\rr.txt\n    write-Host 'Patching'\n}\nwrite-Host 'Patched'\n"
+        }
+    },
+    "Hardening": {
+        "Enable TLS1.3&TLS1.2&TLS1.1": {
+            "ShortPrefix": "GPO,Computer",
+            "Comment": "Enable TLS1.1, TLS 1.2 and TLS 1.3\nValues:\n    0x00000008\tEnable SSL 2.0\n    0x00000020\tEnable SSL 3.0\n    0x00000080\tEnable TLS 1.0\n    0x00000200\tEnable TLS 1.1\n    0x00000800\tEnable TLS 1.2\n    0x00002000\tEnable TLS 1.3\n\nSide effect: None\nIf Disabled: an block some SSL/TLS connections\n",
+            "Hive": {
+                "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Internet Settings": {
+                    "SecureProtocols": "DWord:10752"
+                },
+                "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\\WinHttp": {
+                    "DefaultSecureProtocols": "DWord:10752"
+                },
+                "HKLM\\SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\\WinHttp": {
+                    "DefaultSecureProtocols": "DWord:10752"
+                },
+                "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.3\\Client": {
+                    "DisabledByDefault": "DWord:0",
+                    "Enabled": "DWord:1"
+                },
+                "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Client": {
+                    "DisabledByDefault": "DWord:0",
+                    "Enabled": "DWord:1"
+                },
+                "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Client": {
+                    "DisabledByDefault": "DWord:0",
+                    "Enabled": "DWord:1"
+                },
+                "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.3\\Server": {
+                    "DisabledByDefault": "DWord:0",
+                    "Enabled": "DWord:1"
+                },
+                "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.2\\Server": {
+                    "DisabledByDefault": "DWord:0",
+                    "Enabled": "DWord:1"
+                },
+                "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.1\\Server": {
+                    "DisabledByDefault": "DWord:0",
+                    "Enabled": "DWord:1"
+                }
+            }
+        },
+        "UAC configuration": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System": {
+                    "FilterAdministratorToken": "DWord:1",
+                    "LocalAccountTokenFilterPolicy": "DWord:0"
+                }
+            },
+            "GPLink": "OU=Domain Controllers,$LDAP_DN"
+        },
+        "RDP server configuration": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services": {
+                    "KeepAliveInterval": "DWord:1",
+                    "DeleteTempDirsOnExit": "DWord:1",
+                    "SecurityLayer": "DWord:2",
+                    "UserAuthentication": "DWord:1",
+                    "MaxIdleTime": "DWord:900000",
+                    "MaxDisconnectionTime": "DWord:900000",
+                    "RemoteAppLogoffTimeLimit": "DWord:300000",
+                    "fEncryptRPCTraffic": "DWord:1",
+                    "MinEncryptionLevel": "DWord:3",
+                    "AllowEncryptionOracle": "DWord:0"
+                },
+                "HKLM\\System\\CurrentControlSet\\Control\\Lsa": {
+                    "DisableDomainCreds": "DWord:1"
+                }
+            },
+            "GPLink": "$LDAP_DN"
+        },
+        "LogSystem": {
+            "ShortPrefix": "GPO,Computer",
+            "Comment": "Windows logs configuration:\n- type of logs\n- size of logs\n\nIf disabled: Lost logs information\n",
+            "Event Audit": {
+                "AuditSystemEvents": 3,
+                "AuditLogonEvents": 3,
+                "AuditObjectAccess": 3,
+                "AuditPrivilegeUse": 3,
+                "AuditPolicyChange": 3,
+                "AuditAccountManage": 3,
+                "AuditProcessTracking": 3,
+                "AuditDSAccess": 3,
+                "AuditAccountLogon": 3
+            },
+            "Hive": {
+                "HKLM\\System\\CurrentControlSet\\Control\\Lsa\\MSV1_0": {
+                    "AuditReceivingNTLMTraffic": "DWord:2"
+                },
+                "HKLM\\System\\CurrentControlSet\\Services\\Netlogon\\Parameters": {
+                    "AuditNTLMInDomain": "DWord:7"
+                },
+                "HKLM\\Software\\Policies\\Microsoft\\Windows\\PowerShell\\ModuleLogging": {
+                    "EnableModuleLogging": "DWord:1"
+                },
+                "HKCU\\Software\\Policies\\Microsoft\\Windows\\PowerShell\\Transcription": {
+                    "EnableTranscripting": "DWord:1",
+                    "EnableInvocationHeader": "DWord:1",
+                    "OutputDirectory": "ExpandString:C:\\Windows\\Powershell.log"
+                },
+                "HKCU\\Software\\Policies\\Microsoft\\Windows\\PowerShell\\ScriptBlockLogging": {
+                    "EnableScriptBlockLogging": "DWord:1"
+                },
+                "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Channels\\Microsoft-Windows-Dhcp-Client/Operational": {
+                    "Enabled": "DWord:1"
+                },
+                "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Channels\\Microsoft-Windows-Dhcpv6-Client/Operational": {
+                    "Enabled": "DWord:1"
+                },
+                "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Channels\\Microsoft-Windows-DNS-Client/Operational": {
+                    "Enabled": "DWord:1"
+                }
+            }
+        },
+        "Auto lock session after 15min": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System": {
+                    "InactivityTimeoutSecs": "DWord:900"
+                }
+            },
+            "GPLink": "$LDAP_DN"
+        },
+        "Deny anonymous SMB (Block CobaltStrike from using \\evil.kali\tmp$\becon.exe)": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\LanmanWorkstation": {
+                    "AllowInsecureGuestAuth": "DWord:0"
+                }
+            },
+            "GPLink": "$LDAP_DN"
+        },
+        "WinRM - Configuration": {
+            "Comment": "WinRM configuration:\n- Disable basic auth & Negotiate\n- Force kerberos auth\n- Enable protection against relay\n\nIf disabled: Restore WinRM default configuration\n",
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Service": {
+                    "AllowBasic": "DWord:0",
+                    "AllowDigest": "DWord:0",
+                    "AllowKerberos": "DWord:1",
+                    "CbtHardeningLevel": "SZ:Strict",
+                    "AllowNegotiate": "DWord:0"
+                },
+                "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WinRM\\Client": {
+                    "AllowBasic": "DWord:0",
+                    "AllowDigest": "DWord:0",
+                    "AllowKerberos": "DWord:1",
+                    "CbtHardeningLevel": "SZ:Strict",
+                    "AllowNegotiate": "DWord:0"
+                }
+            },
+            "Fw": {
+                "Inbound-Allow": {
+                    "Protocol": "TCP",
+                    "LocalPort": "@(5985,5986)"
+                }
+            }
+        }
+    },
+    "Priv": {
+        "Groups allowed to link new computers to the domain (PRIV_ENROLL_MACHINE)": {
+            "Script": "New-ADGroup -Name PRIV_ENROLL_MACHINE -Path \"OU=_CriticalUsers,$LDAP_DN\" -GroupCategory Security -GroupScope Universal\n# Avoid machine added by users\nSet-ADDomain (Get-ADDomain).distinguishedname -Replace @{\"ms-ds-MachineAccountQuota\"=\"0\"}\n# List all creators\nGet-ADComputer -Filter * -Properties ms-DS-CreatorSID | Where-Object -FilterScript { $_.\"ms-DS-CreatorSID\" -ne $Null } | Format-Table -AutoSize -Property Name,@{Label='User';Expression={(New-Object System.Security.Principal.SecurityIdentifier($_.\"mS-DS-CreatorSID\".Value)).Translate([System.Security.Principal.NTAccount]).Value}}\ndsacls.exe \"OU=_AllComputers,$(([ADSI]'LDAP://RootDSE').defaultNamingContext.Value)\" /G \"PRIV_ENROLL_MACHINE:CC;computer\"\n# Check if MachineAccountQuota=0           \nGet-ADObject ((Get-ADDomain).distinguishedname) -Properties ms-DS-MachineAccountQuota\n### Add manualy the group or users allowed to add machine\n### Group Policy Management Console (gpmc.msc) > Domain Controllers OU > Domain Controllers Policy > Computer Configuration > Policies > Windows Settings > Security Settings > Local Policies > User Rights Assigments > Add workstations to domain\n### And https://www.appuntidallarete.com/you-have-exceeded-the-maximum-number-of-computer-accounts/\n### https://www.moderndeployment.com/correct-domain-join-account-permissions/\n"
+        },
+        "Allow session for groups PRIV_INTERACT_WORKSTATION,PRIV_LOCAL_ADM": {
+            "ShortPrefix": "GPO,Computer",
+            "Privilege Rights": {
+                "SeInteractiveLogonRight": "S-1-5-32-544, PRIV_LOCAL_ADM, PRIV_INTERACT_WORKSTATION"
+            }
+        },
+        "Allow session for groups PRIV_INTERACT_LAPTOP,PRIV_LOCAL_ADM": {
+            "ShortPrefix": "GPO,Computer",
+            "Privilege Rights": {
+                "SeInteractiveLogonRight": "S-1-5-32-544, PRIV_LOCAL_ADM, PRIV_INTERACT_LAPTOP"
+            }
+        },
+        "Allow RDP for group PRIV_REMOTE_TS": {
+            "ShortPrefix": "GPO,Computer",
+            "Privilege Rights": {
+                "SeInteractiveLogonRight": "S-1-5-32-544, PRIV_REMOTE_TS, PRIV_LOCAL_ADM",
+                "SeNetworkLogonRight": "S-1-5-32-544, PRIV_REMOTE_TS, PRIV_LOCAL_ADM"
+            }
+        },
+        "AdminLocal for group PRIV_LOCAL_ADM": {
+            "ShortPrefix": "GPO,Computer",
+            "Group Membership": {
+                "S-1-5-32-544__Memberof": "",
+                "S-1-5-32-544__Members": "PRIV_LOCAL_ADM"
+            }
+        },
+        "DomainAdmin not allowed to connect": {
+            "ShortPrefix": "GPO,Computer",
+            "Script": "$UID__DOMAIN = (Get-ADDomain).DomainSID.Value\n",
+            "Privilege Rights": {
+                "SeDenyNetworkLogonRight": "S-1-5-32-546, $UID__DOMAIN-514, $UID__DOMAIN-501, $UID__DOMAIN-512, $UID__DOMAIN-519",
+                "SeDenyInteractiveLogonRight": "S-1-5-32-546, $UID__DOMAIN-514, $UID__DOMAIN-501, $UID__DOMAIN-512, $UID__DOMAIN-519",
+                "SeDenyServiceLogonRight": "S-1-5-32-546, $UID__DOMAIN-514, $UID__DOMAIN-501, $UID__DOMAIN-512, $UID__DOMAIN-519",
+                "SeDenyBatchLogonRight": "S-1-5-32-546, $UID__DOMAIN-514, $UID__DOMAIN-501, $UID__DOMAIN-512, $UID__DOMAIN-519",
+                "SeDenyRemoteInteractiveLogonRight": "S-1-5-32-546, $UID__DOMAIN-514, $UID__DOMAIN-501, $UID__DOMAIN-512, $UID__DOMAIN-519"
+            }
+        }
+    },
+    "Firewall": {
+        "FW-TEST": {
+            "Fw": {
+                "Outbound-Allow": {
+                    "toto": {
+                        "Program": [
+                            "C:\\Program Files\\Internet Explorer\\iexplore.exe",
+                            "C:\\Program Files (x86)\\Internet Explorer\\iexplore.exe"
+                        ],
+                        "RemoteAdress": "$IPForInternet",
+                        "Protocol": "TCP"
+                    }
+                }
+            }
+        },
+        "Set default inbound policy to Allow/Open - Learning mode": {
+            "ShortPrefix": "GPO,Computer",
+            "Fw": {
+                "DefaultInboundAction": "Allow"
+            }
+        },
+        "Set default inbound policy to Block": {
+            "ShortPrefix": "GPO,Computer",
+            "Fw": {
+                "DefaultInboundAction": "Block"
+            }
+        },
+        "Enable Log & Whitelist bastion admin": {
+            "ShortPrefix": "GPO,Computer",
+            "Script": "$IP_VPN_ADMIN = '10.10.10.0/24'\n",
+            "Fw": {
+                "Enabled": true,
+                "NotifyOnListen": false,
+                "DefaultOutboundAction": "Allow",
+                "AllowInboundRules": true,
+                "AllowLocalFirewallRules": false,
+                "AllowLocalIPsecRules": true,
+                "AllowUnicastResponseToMulticast": true,
+                "LogAllowed": true,
+                "LogBlocked": true,
+                "LogIgnored": false,
+                "LogFileName": "%windir%\\system32\\logfiles\\pfirewall.log",
+                "LogMaxSizeKilobytes": 32767,
+                "Inbound-Allow": {
+                    "WhiteList Bastion": "$IP_VPN_ADMIN:*/*"
+                }
+            }
+        },
+        "DHCPServer for everybody": {
+            "ShortPrefix": "GPO,Computer",
+            "Fw": {
+                "Inbound-Allow": {
+                    "DHCP for users": {
+                        "Protocol": "UDP",
+                        "LocalPort": "@(67,2535)"
+                    }
+                }
+            }
+        },
+        "DC-Replication": {
+            "ShortPrefix": "GPO,Computer",
+            "Script": "$domainDontrollerList = (Get-DnsClientGlobalSetting).SuffixSearchList | foreach {\n    Resolve-DnsName -Type ALL -Name _ldap._tcp.dc._msdcs.$_\n} | foreach {\n    $_.IP4Address\n} | sort -unique\n",
+            "Fw": {
+                "Inbound-Allow": {
+                    "RemoteAddress": "$domainDontrollerList"
+                },
+                "Outbound-Allow": {
+                    "RemoteAddress": "$domainDontrollerList"
+                }
+            }
+        },
+        "Wide-Open-DC-Services-TCP": {
+            "ShortPrefix": "GPO,Computer",
+            "Fw": {
+                "Inbound-Allow": {
+                    "Wide-Open-DC-Services-TCP": {
+                        "Protocol": "TCP",
+                        "LocalPort": "@(88,389,445,464,636,3269,3268,9389)"
+                    },
+                    "Wide-Open-DC-Services-UDP": {
+                        "Protocol": "UDP",
+                        "LocalPort": "@(123,88,389,500,2535,67,68)"
+                    },
+                    "Wide-Open-DC-Services-RPC": {
+                        "Protocol": "TCP",
+                        "LocalPort": "RPC"
+                    },
+                    "Wide-Open-DC-Services-RPC-EPMAP": {
+                        "Protocol": "TCP",
+                        "LocalPort": "RPCEPMap"
+                    }
+                }
+            }
+        }
+    },
+    "Security": {
+        "SMB server - FileServer configuration": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters": {
+                    "SMB1": "DWord:0",
+                    "EnableSecuritySignature": "DWord:1",
+                    "RequireSecuritySignature": "DWord:1",
+                    "AutoShareWks": "DWord:0",
+                    "AutoShareServer": "DWord:0",
+                    "AutoDisconnect": "DWord:60",
+                    "RestrictNullSessAccess": "DWord:1"
+                },
+                "HKLM\\System\\CurrentControlSet\\Services\\Rdr\\Parameters": {
+                    "EnableSecuritySignature": "DWord:1",
+                    "RequireSecuritySignature": "DWord:1"
+                }
+            },
+            "GPLink": "$LDAP_DN"
+        },
+        "SMB client configuration": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\System\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters": {
+                    "EnableSecuritySignature": "DWord:1",
+                    "RequireSecuritySignature": "DWord:1",
+                    "EnablePlainTextPassword": "DWord:0"
+                }
+            },
+            "GPLink": "$LDAP_DN"
+        },
+        "Bitlocker": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\Software\\Policies\\Microsoft\\FVE": {
+                    "ActiveDirectoryBackup": "DWord:1",
+                    "OSActiveDirectoryBackup": "DWord:1",
+                    "FDVActiveDirectoryBackup": "DWord:1",
+                    "RDVActiveDirectoryBackup": "DWord:1",
+                    "OSRecovery": "DWord:1",
+                    "RequireActiveDirectoryBackup": "DWord:1",
+                    "ActiveDirectoryInfoToStore": "DWord:1",
+                    "EncryptionMethodWithXtsOs": "DWord:7",
+                    "EncryptionMethodWithXtsFdv": "DWord:7",
+                    "EncryptionMethodWithXtsRdv": "DWord:7",
+                    "EncryptionMethodNoDiffuser": "DWord:4",
+                    "EncryptionMethod": "DWord:2"
+                }
+            }
+        },
+        "Windows defender": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\Signature Updates": {
+                    "DisableUpdateOnStartupWithoutEngine": "DWord:0"
+                },
+                "HKLM\\Software\\Policies\\Microsoft\\Windows Defender": {
+                    "DisableAntiSpyware": "DWord:0",
+                    "DisableRoutinelyTakingAction": "DWord:0",
+                    "PUAProtection": "DWord:1"
+                },
+                "HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection": {
+                    "DisableBehaviorMonitoring": "DWord:0",
+                    "DisableIOAVProtection": "DWord:0",
+                    "DisableOnAccessProtection": "DWord:0",
+                    "DisableRawWriteNotification": "DWord:0",
+                    "DisableScanOnRealtimeEnable": "DWord:0",
+                    "RealtimeScanDirection": "DWord:0"
+                },
+                "HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\Scan": {
+                    "DisableHeuristics": "DWord:0",
+                    "DisablePackedExeScanning": "DWord:0"
+                },
+                "HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\Windows Defender Exploit Guard\\ASR": {
+                    "ExploitGuard_ASR_Rules": "DWord:1"
+                },
+                "HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\Windows Defender Exploit Guard\\ASR\\Rules": {
+                    "75668C1F-73B5-4CF0-BB93-3ECF5CB7CC84": "1:String",
+                    "D4F940AB-401B-4EFC-AADC-AD5F3C50688A": "1:String",
+                    "92E97FA1-2EDF-4476-BDD6-9DD0B4DDDC7B": "1:String",
+                    "3B576869-A4EC-4529-8536-B80A7769E899": "1:String",
+                    "5BEB7EFE-FD9A-4556-801D-275E5FFC04CC": "1:String",
+                    "BE9BA2D9-53EA-4CDC-84E5-9B1EEEE46550": "1:String",
+                    "D3E037E1-3EB8-44C8-A917-57927947596D": "1:String",
+                    "C1DB55AB-C21A-4637-BB3F-A12568109D35": "1:String",
+                    "B2B3F03D-6A65-4F7B-A9C7-1C7EF74A9BA4": "1:String"
+                },
+                "HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\Windows Defender Exploit Guard\\Network Protection": {
+                    "EnableNetworkProtection": "DWord:1"
+                }
+            },
+            "GPLink": "$LDAP_DN"
+        },
+        "[CVE] Fix-exploit-kerberos-samaccountname-spoofing #CVE-2021-42287 #CVE-2021-42278": {
+            "ShortPrefix": "GPO,Computer",
+            "Script": "#To find any computer accounts that have a invalid SamAccountName property use this query\nGet-ADComputer -Filter { samAccountName -notlike \"*$\" } | Set-ADComputer -Enabled $false\n",
+            "Hive": {
+                "HKLM\\System\\CurrentControlSet\\Services\\Kdc": {
+                    "PacRequestorEnforcement": "DWord:2"
+                }
+            },
+            "GPLink": "OU=Domain Controllers,$LDAP_DN"
+        },
+        "LDAP client configuration": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\System\\CurrentControlSet\\Services\\LDAP": {
+                    "LDAPClientIntegrity": "DWord:2"
+                }
+            },
+            "GPLink": "$LDAP_DN"
+        },
+        "LDAP server configuration": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\System\\CurrentControlSet\\Services\\NTDS\\Parameters": {
+                    "LDAPServerIntegrity": "DWord:2",
+                    "LdapEnforceChannelBinding": "DWord:2"
+                }
+            },
+            "GPLink": "OU=Domain Controllers,$LDAP_DN"
+        },
+        "LSASS Protection (Mimikatz)": {
+            "Comment": "Protect the process lsass.exe to avoid an attacker to hijack credentials by dumping lsass.exe\n\nRequire: Do not deploy on computers that require Smartcard/2FA with DLL not signed by Microsoft            \nSide effect: Block all DLL not signed by Microsoft.\nIf disabled: An attacker can abuse of dumping lsass.exe to grab AD credentials of past connections.\nDoc: https://itm4n.github.io/lsass-runasppl/\n",
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest": {
+                    "UseLogonCredential": "DWord:0",
+                    "Negotiate": "DWord:0"
+                },
+                "HKLM\\SYSTEM\\CurrentControlSet\\Control\\LSA": {
+                    "RunAsPPL": "DWord:1",
+                    "DisableRestrictedAdmin": "DWord:0",
+                    "DisableRestrictedAdminOutboundCreds": "DWord:1"
+                }
+            }
+        },
+        "LSASS Protection (Mimikatz)(tspkg)": {
+            "Comment": "Block credential delegation to avoid an attacker to hijack credentials from lsass.exe\n\nRequire: Do not deploy on RDP server that require delegation\nSide effect: Can kill RDP server for delegation.\nIf disabled: An attacker can abuse of lsass and rdp service to grab AD credentials of past connections.\nDoc: https://clement.notin.org/blog/2019/07/03/credential-theft-without-admin-or-touching-lsass-with-kekeo-by-abusing-credssp-tspkg-rdp-sso/\n",
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CredentialsDelegation": {
+                    "AllowDefaultCredentials": "DWORD:0",
+                    "ConcatenateDefaults_AllowDefault": "DWORD:0",
+                    "AllowDefCredentialsWhenNTLMOnly": "DWORD:0",
+                    "ConcatenateDefaults_AllowDefNTLMOnly": "DWORD:0"
+                },
+                "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CredentialsDelegation\\AllowDefCredentialsWhenNTLMOnly": {
+                    "1": "SZ:"
+                },
+                "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CredentialsDelegation\\AllowDefaultCredentials": {
+                    "1": "SZ:"
+                }
+            }
+        },
+        "WIFI-Protection - AirStrike": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System": {
+                    "DontDisplayNetworkSelectionUI": "DWord:1"
+                },
+                "HKLM\\Software\\Microsoft\\PolicyManager\\default\\WiFi\\AllowAutoConnectToWiFiSenseHotspots": {
+                    "value": "DWord:0"
+                }
+            },
+            "GPLink": "$LDAP_DN"
+        },
+        "Disable print spooler": {
+            "ShortPrefix": "GPO,Computer",
+            "Service General Setting": {
+                "Spooler": 4
+            },
+            "GPLink": "OU=Domain Controllers,$LDAP_DN"
+        },
+        "LLMNR": {
+            "Comment": "Protection against Man-In-The-Middle.\nSide effect: Check first that dns suffix is deployed everywhere",
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\DNSClient": {
+                    "EnableMulticast": "DWord:0"
+                }
+            },
+            "GPLink": "$LDAP_DN"
+        },
+        "NetBios": {
+            "Comment": "Protection against Man-In-The-Middle.\nSide effect: Check first that dns suffix is deployed everywhere",
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Netbt\\Parameters": {
+                    "NodeType": "DWord:2"
+                }
+            },
+            "GPLink": "$LDAP_DN"
+        },
+        "mDNS": {
+            "Comment": "Protection against Man-In-The-Middle.\nSide effect: Check first that dns suffix is deployed everywhere",
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Dnscache\\Parameters": {
+                    "EnableMDNS": "DWord:0"
+                }
+            },
+            "GPLink": "$LDAP_DN"
+        },
+        "IPv6": {
+            "Comment": "Protection against Man-In-The-Middle.\nSide effect: None",
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip6\\Parameters": {
+                    "DisabledComponents": "DWord:32"
+                }
+            },
+            "GPLink": "$LDAP_DN"
+        },
+        "WPAD": {
+            "Comment": "Protection against Man-In-The-Middle.\n\nRequire: Check if corp use automatic proxy settings\nSide effect: Can block network communication if WAD proxy is used but not deployed via GPO ou via DNS entry\n",
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\SYSTEM\\CurrentControlSet\\Services\\WinHttpAutoProxySvc": {
+                    "Start": "DWord:4"
+                },
+                "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\\Wpad": {
+                    "WpadOverride": "DWord:1"
+                },
+                "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\\Wpad": {
+                    "WpadOverride": "DWord:1"
+                },
+                "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings": {
+                    "AutoDetect": "DWord:0"
+                },
+                "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings": {
+                    "AutoDetect": "DWord:0"
+                }
+            }
+        },
+        "Windows-LAPSv2": {
+            "Script": "# Doc: https://www.it-connect.fr/tuto-configurer-windows-laps-active-directory/\n# Doc: https://learn.microsoft.com/en-us/windows-server/identity/laps/laps-management-policy-settings\nImport-Module LAPS\n# Note admx is at C:\\Windows\\PolicyDefinitions\\LAPS.admx\n# > Computer Configuration > Policies > Administration template > System > LAPS\nUpdate-LapsADSchema -Verbose\n# Will add the following attributes\n#    msLAPS-PasswordExpirationTime\n#    msLAPS-Password\n#    msLAPS-EncryptedPassword\n#    msLAPS-EncryptedPasswordHistory\n#    msLAPS-EncryptedDSRMPassword\n#    msLAPS-EncryptedDSRMPasswordHistory\n# Allow computers to update their local admin password\nSet-LapsADComputerSelfPermission -Identity \"OU=Computers,$LDAP_DN\"\nNew-ADGroup -Name PRIV_WLAPS_READER -Path \"OU=_CriticalUsers,$LDAP_DN\" -GroupCategory Security -GroupScope DomainLocal\nSet-LapsADReadPasswordPermission -Identity \"OU=Computers,$LDAP_DN\" -AllowedPrincipals PRIV_WLAPS_READER\nSet-LapsADAuditing -Identity \"OU=Computers,$LDAP_DN\" -AuditedPrincipals PRIV_WLAPS_READER -AuditType Success\n#xcopy C:\\Windows\\PolicyDefinition\\LAPS.admx and \\en-US\\LAPS.adml\n#xcopy C:\\Windows\\PolicyDefinition\\en-US\\LAPS.adml \\corp.net\\SYSVOL\\corp.net\\Policies\\PolicyDefinitions\n#\n# Event: Applications and Services Logs>Microsoft>Windows>LAPS\n#\n# delete LAPS.Legacy agent:\n# > MsiExec.exe /x {EA8CB806-C109-4700-96B4-F1F268E5036C} /qn\n# | Policy name\t                | Policy registry key root\n# |=============================|===============================================================\n# | LAPS CSP\t                | HKLM\\Software\\Microsoft\\Policies\\LAPS\n# | LAPS Group Policy\t        | HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\LAPS\n# | LAPS Local Configuration\t| HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\LAPS\\Config\n# | Legacy Microsoft LAPS\t    | HKLM\\Software\\Policies\\Microsoft Services\\AdmPwd\n#\n# TO force LAPS refresh on a computer:\n# > Invoke-LapsPolicyProcessing\n#\n# Get Password\n# > Get-LapsADPassword \"PC-01\" -AsPlainText -IncludeHistory\n",
+            "Comment": "Configuration for Windows LAPS (new LAPS)\n\nRequire: Check if local admin is not used by scripts/services/schtask\nSide effect: None\n",
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\LAPS": {
+                    "BackupDirectory": "DWord:2",
+                    "PasswordAgeDays": "DWord:30",
+                    "PasswordLength": "DWord:20",
+                    "PasswordComplexity": "DWord:4",
+                    "ADPasswordEncryptionEnabled": "DWord:0",
+                    "ADBackupDSRMPassword": "DWord:1",
+                    "PostAuthenticationResetDelay": "DWord:6",
+                    "PostAuthenticationActions": "DWord:3"
+                },
+                "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\LAPS\\Config": {
+                    "BackupDirectory": "DWord:2",
+                    "PasswordAgeDays": "DWord:30",
+                    "PasswordLength": "DWord:20",
+                    "PasswordComplexity": "DWord:4",
+                    "ADPasswordEncryptionEnabled": "DWord:0",
+                    "ADBackupDSRMPassword": "DWord:1",
+                    "PostAuthenticationResetDelay": "DWord:6",
+                    "PostAuthenticationActions": "DWord:3"
+                }
+            }
+        },
+        "LAPS.Legacy": {
+            "ShortPrefix": "GPO,Computer",
+            "Script": "# Installation of LAPS & LAPS UI on the DC\nchoco install laps --params='/ALL' -y\n# Update the schema of the AD with new attributes:\n#   ms-MCS-AdmPwd\n#   ms-MCS-AdmPwdExpirationTime\nImport-module AdmPwd.PS\nUpdate-AdmPwdADSchema\n# Set ACLs to set passwords in ms-Mcs-AdmPwd by SELF (computers)\nSet-AdmPwdComputerSelfPermission -Identity _AllComputers # <Base OU with computers>\n# Create LAPS auto deployement\nNew-GPOSchTask -GPOName \"[SD][Choco] LAPS\" -TaskName \"[SD][Choco] LAPS\" -TaskType ImmediateTask -Command 'C:\\ProgramData\\chocolatey\\bin\\choco.exe' -CommandArguments 'install -y laps'\n# One line full deploy New-GPOSchTask -GPOName \"[SD][Choco] LAPS\" -TaskName \"[SD][Choco] LAPS\" -TaskType ImmediateTask -Command \"powershell.exe\" -CommandArguments '-exec bypass -nop -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;iwr https://chocolatey.org/install.ps1 -UseBasicParsing | iex; C:\\ProgramData\\chocolatey\\bin\\choco.exe install -y laps\"'\n# Grant a group for LAPS of computers of an OU\n##dsacls \"OU=SecretComputers,OU=azerty,DC=corp,DC=local\" /G \"LAPS_READER_4_SecretComputers:CA;ms-Mcs-AdmPwd\"\n",
+            "Comment": "Configuration for LAPS.Legacy: Every 30 days change local administrator password with a random one with a length of 16 random chars [A-Za-z0-9-+*/*$=)]\nSide effect: None\nNote: Debug mode is enabled for tracking LAPS error",
+            "Hive": {
+                "HKLM\\Software\\Policies\\Microsoft Services\\AdmPwd": {
+                    "AdmPwdEnabled": "DWord:1",
+                    "PwdExpirationProtectionEnabled": "DWord:1",
+                    "PasswordComplexity": "DWord:4",
+                    "PasswordLength": "DWord:16",
+                    "PasswordAgeDays": "DWord:30"
+                },
+                "HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\GPExtensions\\{D76B9641-3288-4f75-942D-087DE603E3EA}": {
+                    "ExtensionDebugLevel": "DWord:2"
+                }
+            }
+        },
+        "Machine Password Rotation": {
+            "Comment": "Force computer to change their AD password every 30days\nSide effect: None",
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\System\\CurrentControlSet\\Services\\Netlogon\\Parameters": {
+                    "DisablePasswordChange": "DWord:0",
+                    "MaximumPasswordAge": "DWord:30"
+                }
+            },
+            "GPLink": "$LDAP_DN"
+        },
+        "Network security: Restrict NTLM outgoing authentication for machine account (Coercing)": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\System\\CurrentControlSet\\Control\\Lsa\\MSV1_0": {
+                    "RestrictSendingNTLMTraffic": "DWord:2"
+                }
+            },
+            "GPLink": "OU=Domain Controllers,$LDAP_DN"
+        },
+        "Network security: Send NTLMv2 response only. Refuse LM & NTLM": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\System\\CurrentControlSet\\Control\\Lsa": {
+                    "LmCompatibilityLevel": "DWord:5",
+                    "NoLMHash": "DWord:1"
+                }
+            },
+            "GPLink": "$LDAP_DN"
+        },
+        "Encryption & sign communications": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\System\\CurrentControlSet\\Services\\Netlogon\\Parameters": {
+                    "RequireSignOrSeal": "DWord:1",
+                    "SealSecureChannel": "DWord:1",
+                    "SignSecureChannel": "DWord:1"
+                }
+            },
+            "GPLink": "$LDAP_DN"
+        },
+        "WindowsUpdate for users": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\Software\\Policies\\Microsoft\\Windows\\WindowsUpdate": {
+                    "SetAutoRestartDeadline": "DWord:1",
+                    "AutoRestartDeadlinePeriodInDays": "DWord:3",
+                    "AutoRestartDeadlinePeriodInDaysForFeatureUpdates": "DWord:3",
+                    "SetComplianceDeadline": "DWord:1",
+                    "ConfigureDeadlineForQualityUpdates": "DWord:3",
+                    "ConfigureDeadlineGracePeriod": "DWord:2",
+                    "ConfigureDeadlineForFeatureUpdates": "DWord:3",
+                    "ConfigureDeadlineGracePeriodForFeatureUpdates": "DWord:2",
+                    "ConfigureDeadlineNoAutoReboot": "DWord:1",
+                    "SetActiveHoursMaxRange": "DWord:1",
+                    "ActiveHoursMaxRange": "DWord:18"
+                },
+                "HKLM\\Software\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU": {
+                    "AUOptions": "DWord:4",
+                    "AutomaticMaintenanceEnabled": "DWord:1",
+                    "ScheduledInstallDay": "DWord:0",
+                    "ScheduledInstallTime": "DWord:12",
+                    "ScheduledInstallEveryWeek": "DWord:1",
+                    "AllowMUUpdateService": "DWord:1",
+                    "AutoInstallMinorUpdates": "DWord:1",
+                    "IncludeRecommendedUpdates": "DWord:1"
+                }
+            }
+        },
+        "WindowsUpdate for servers": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\Software\\Policies\\Microsoft\\Windows\\WindowsUpdate": {
+                    "SetActiveHoursMaxRange": "DWord:1",
+                    "ActiveHoursMaxRange": "DWord:18"
+                },
+                "HKLM\\Software\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU": {
+                    "AUOptions": "DWord:4",
+                    "AutomaticMaintenanceEnabled": "DWord:1",
+                    "ScheduledInstallDay": "DWord:0",
+                    "ScheduledInstallTime": "DWord:3",
+                    "ScheduledInstallEveryWeek": "DWord:1",
+                    "AllowMUUpdateService": "DWord:1",
+                    "AutoInstallMinorUpdates": "DWord:1",
+                    "IncludeRecommendedUpdates": "DWord:1"
+                }
+            }
+        }
+    },
+    "NiceToHave": {
+        "Unlimited Path length": {
+            "ShortPrefix": "GPO,Computer",
+            "Comment": "Allow long path in Windows, usefull for SMB share for users.\n\nSide effect: None\nIf disabled: Can block access to some ressource on SMB that have long path\n",
+            "Hive": {
+                "HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem": {
+                    "LongPathsEnabled": "DWord:1"
+                }
+            },
+            "GPLink": "$LDAP_DN"
+        }
+    },
+    "Azure": {
+        "Deny AzureAD autojoin via Teams": {
+            "ShortPrefix": "GPO&Pref,Computer",
+            "Comment": "Deny Teams&co to autojoin device to AzureAD\n\nTo detect if the computer/user is AAD auto join:\n1) Check:\n    dsregcmd.exe /debug /status\n2) Unenroll:\n    dsregcmd.exe /debug /leave (as SYSTEM)\n3) Reinstall \"Microsoft.AAD.BrokerPlugin\" in the context of the user session\n    Add-AppxPackage -Register \"C:\\Windows\\SystemApps\\Microsoft.AAD.BrokerPlugin_cw5n1h2txyewy\\Appxmanifest.xml\" -DisableDevelopmentMode -ForceApplicationShutdown\n4) Clear all \"Microsoft.AAD.BrokerPlugin\" cache (as local ADMIN)\n    Get-ItemProperty -Path \"C:\\Users\\*\\AppData\\Local\\Packages\\Microsoft.AAD.BrokerPlugin*\" | %{ rmdir /q /s \"$($_.FullName)\" } | Out-Null \n\nWARNING! Do not disable DisableAADWAM or EnableADAL, it will kill the MFA on Azure, all account with WFA will not work anymore\n\nTo avoid device to auto join in AAD, configure AAD. In AAD/Microsoft-Entra go to Identity > Devices > All devices > Device settings\n    - \"Users may join devices to Microsoft Entra ID\": SELECTED (only dedicated user)\n    - \"Additional local administrators on Microsoft Entra joined devices\": NONE\n    - \"Require multifactor authentication (MFA) to join devices\": YES\n\nSide effect: Take the computer out of AAD but not from AD\nIf disabled: Will allow Teams & co to auto-enroll the device. Will not autojoin to AAD\nDoc: https://techpress.net/how-to-unjoin-a-hybrid-azure-ad-join-device/\nDoc: To fix the unpredictable freez of Office apps (Outlook/Teams/OneDrive): http://aldrid.ge/W10MU-AAD-Auth\n",
+            "Hive": {
+                "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WorkplaceJoin": {
+                    "BlockAADWorkplaceJoin": "DWord:1",
+                    "autoWorkplaceJoin": "DWord:0"
+                }
+            },
+            "Tasks": {
+                "Unjoin AAD": {
+                    "Type": "ImmediateTask",
+                    "Command": "dsregcmd",
+                    "CommandArguments": "/debug /leave"
+                }
+            }
+        }
+    }
+};
+</script>
+<script type="text/javascript" src="/js/GPO.js"></script>
+</body></html>

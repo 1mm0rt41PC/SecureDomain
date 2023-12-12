@@ -1,0 +1,51 @@
+<html><head>
+	<title></title>
+<style type="text/css">
+form {
+	margin-top: 3em;
+	display: none;
+}
+
+form > div {
+	border: 1px solid #000000;
+	margin-bottom: 3em;
+}
+
+div > label {
+	font-weight: bolder;
+}
+div > .comment {
+	margin-left: 10em;
+}
+code {
+	display: block;
+	font-family: Consolas, Monaco, monospace;
+	font-size: 10pt;
+	overflow-x: auto;
+	padding: 0.5em;
+	scrollbar-width: thin;
+	-moz-tab-size: 4;
+	tab-size: 4;
+}
+pre code.hljs {
+  /* compatible with school-book */
+  padding: 16px 30px 20px;
+}
+</style>
+
+<link rel="stylesheet" title="Base16 / Tomorrow Night" href="/js/styles/default.min.css" />
+<link rel="stylesheet" href="/js/styles/base16/tomorrow-night.min.css" />
+<script type="text/javascript" src="/js/highlight.min.js"></script>
+<script type="text/javascript" src="/js/languages/powershell.min.js"></script>
+
+
+</head><body>
+<div>
+	<input id="prefix" type="text" style="width:50%;" value="1mm0rt41" placeholder="Prefix of GPO" />
+</div>
+<pre><code class="powershell hljs language-powershell" id="release"></code></pre><br />
+<script type="text/javascript">
+var gpoYamlRules={GPO-rules.yaml};
+</script>
+<script type="text/javascript" src="/js/GPO.js"></script>
+</body></html>
