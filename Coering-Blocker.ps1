@@ -1,4 +1,4 @@
-# Mode test
+# Mode test on one computer without GPO linkage
 # Set-NetFirewallProfile -All -Enabled True -DefaultInboundAction Block -DefaultOutboundAction Block -ErrorAction Continue; Sleep 5; Set-NetFirewallProfile -Enabled True -All -DefaultInboundAction Allow -DefaultOutboundAction Allow -ErrorAction Continue;
 
 
