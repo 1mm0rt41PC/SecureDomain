@@ -1,5 +1,26 @@
 # Mode test
-# Set-NetFirewallProfile -All -Enabled True -DefaultInboundAction Block -DefaultOutboundAction Block; Sleep 5; Set-NetFirewallProfile -Enabled True -All -DefaultInboundAction Allow -DefaultOutboundAction Allow;
+# Set-NetFirewallProfile -All -Enabled True -DefaultInboundAction Block -DefaultOutboundAction Block -ErrorAction Continue; Sleep 5; Set-NetFirewallProfile -Enabled True -All -DefaultInboundAction Allow -DefaultOutboundAction Allow -ErrorAction Continue;
+
+
+<#
+$gpo = '[Firewall](GPO,Computer) DROP inbound&outbound'
+$ou  = 'OU=Domain Controllers,DC=corp,DC=local'
+
+function mygpupdate {
+	gpupdate /force
+	Get-ADComputer -Filter * -SearchBase $ou -ErrorAction Continue | %{
+		Invoke-GPUpdate -Force -RandomDelayInMinutes 0 -Computer $_.DNSHostName -ErrorAction Continue
+	}	
+}
+
+New-GPLink -Name $gpo -Target $ou -LinkEnabled Yes -ErrorAction Continue;
+sleep -Seconds 5;
+mygpupdate
+sleep -Seconds 15;
+Remove-GPLink -Name $gpo -Target $ou -ErrorAction Continue;
+sleep -Seconds 5;
+mygpupdate
+#>
 
 New-GPO -Name "[Firewall](GPO,Computer) DROP inbound&outbound" | %{
 	$GpoSessionName = Open-NetGPO -PolicyStore ("{0}\{1}" -f $env:USERDNSDOMAIN,$_.DisplayName)
