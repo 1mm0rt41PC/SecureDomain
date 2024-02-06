@@ -69,7 +69,11 @@ New-GPO -Name "[Firewall](GPO,Computer) Default rules for DC" | %{
 	$gpoPath="C:\Windows\SYSVOL\domain\Policies\$gpoId\Machine\Microsoft\Windows NT\Audit"
 	mkdir "$gpoPath" >$null
 	$inf =  "Machine Name,Policy Target,Subcategory,Subcategory GUID,Inclusion Setting,Exclusion Setting,Setting Value`r`n";
-	$inf += ",System,Audit Filtering Platform Connection,{0cce9226-69ae-11d9-bed3-505054503030},Success,,1";
+	#$inf += ",System,Audit Filtering Platform Connection,{0cce9226-69ae-11d9-bed3-505054503030},Success,,1";
+	$inf += ",System,Audit Filtering Platform Connection,{0cce9226-69ae-11d9-bed3-505054503030},Failure,,2";
+	#$inf += ",System,Audit Filtering Platform Packet Drop,{0cce9225-69ae-11d9-bed3-505054503030},Success and Failure,,3";
+	# Success => Packet allowed
+	# Failure => Packet droped
 	$inf | Out-File -Encoding UTF8 "$gpoPath\audit.csv"
 	
 	Get-AdObject -Filter "(objectClass -eq 'groupPolicyContainer') -and (name -eq '$gpoId')" | Set-ADObject -Replace @{gPCMachineExtensionNames="[{35378EAC-683F-11D2-A89A-00C04FBBCFA2}{B05566AC-FE9C-4368-BE01-7A4CBB6CBA11}][{F3CCC681-B74C-4060-9F26-CD84525DCA2A}{0F3F3735-573D-9804-99E4-AB2A69BA5FD4}]"};
