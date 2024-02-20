@@ -232,6 +232,16 @@ write-Host 'Patched'
 
 
 ###########################################################################################
+# [1mm0rt41][Hardening](GPO,Computer) Force NTLMv2 and Kerberos - Disable LM,NTLMv1
+###########################################################################################
+New-GPO -Name "[1mm0rt41][Hardening](GPO,Computer) Force NTLMv2 and Kerberos - Disable LM,NTLMv1" -Comment "##################################`r`n`r`nForce usage of NTLMv2 and Kerberos`r`nDisable LM and NTLMv1`r`n`r`nSide effect: Can block Windows XP and 2003 - Please audit before !`r`nIf Disabled: Cancel NTLM hardening" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\System\CurrentControlSet\Control\Lsa" -ValueName "NoLMHash" -Value 1 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\System\CurrentControlSet\Control\Lsa" -ValueName "LmCompatibilityLevel" -Value 5 -Type DWord >$null
+	$_
+}
+
+
+###########################################################################################
 # [1mm0rt41][Hardening](GPO,Computer) Enable TLS1.3&TLS1.2&TLS1.1
 ###########################################################################################
 New-GPO -Name "[1mm0rt41][Hardening](GPO,Computer) Enable TLS1.3&TLS1.2&TLS1.1" -Comment "##################################`r`n`r`nEnable TLS1.1, TLS 1.2 and TLS 1.3`r`nValues:`r`n    0x00000008	Enable SSL 2.0`r`n    0x00000020	Enable SSL 3.0`r`n    0x00000080	Enable TLS 1.0`r`n    0x00000200	Enable TLS 1.1`r`n    0x00000800	Enable TLS 1.2`r`n    0x00002000	Enable TLS 1.3`r`n`r`nSide effect: None`r`nIf Disabled: an block some SSL/TLS connections" | %{
@@ -347,17 +357,29 @@ New-GPO -Name "[1mm0rt41][Hardening](GPO,Computer) WinRM - Configuration" -Comme
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service" -ValueName "AllowBasic" -Value 0 -Type DWord >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service" -ValueName "AllowDigest" -Value 0 -Type DWord >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service" -ValueName "AllowKerberos" -Value 1 -Type DWord >$null
-	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service" -ValueName "CbtHardeningLevel" -Value "Strict" -Type SZ >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service" -ValueName "CbtHardeningLevel" -Value "Strict" -Type String >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service" -ValueName "AllowNegotiate" -Value 0 -Type DWord >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client" -ValueName "AllowBasic" -Value 0 -Type DWord >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client" -ValueName "AllowDigest" -Value 0 -Type DWord >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client" -ValueName "AllowKerberos" -Value 1 -Type DWord >$null
-	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client" -ValueName "CbtHardeningLevel" -Value "Strict" -Type SZ >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client" -ValueName "CbtHardeningLevel" -Value "Strict" -Type String >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client" -ValueName "AllowNegotiate" -Value 0 -Type DWord >$null
 	$GpoSessionName = Open-NetGPO -PolicyStore ("{0}\{1}" -f $env:USERDNSDOMAIN,$_.DisplayName)
 	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] Protocol" -Group "[GPO][1mm0rt41][Hardening](GPO,Computer) WinRM - Configuration" -Action Allow -Direction Inbound -LocalPort TCP -Protocol undefined >$null
 	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] LocalPort" -Group "[GPO][1mm0rt41][Hardening](GPO,Computer) WinRM - Configuration" -Action Allow -Direction Inbound -LocalPort @(5985,5986) -Protocol undefined >$null
 	Save-NetGPO -GPOSession $GpoSessionName >$null
+	$_
+}
+
+
+###########################################################################################
+# [1mm0rt41][Log](GPO,Computer) LSA & NTLM Audit Mode
+###########################################################################################
+New-GPO -Name "[1mm0rt41][Log](GPO,Computer) LSA & NTLM Audit Mode" -Comment "##################################`r`n`r`nWindows logs configuration:`r`n- Audit LSA protection (RunAsPPL)`r`n- Audit incoming NTLM traffic for all accounts:`r`n    to view =>`r`n    Get-WinEvent -Filterxml @'`r`n    <QueryList>`r`n     <Query Id=`"0`" Path=`"security`">`r`n      <Select Path=`"security`">`r`n       *[System[(EventID=4624)]]`r`n        and`r`n        (`r`n         *[EventData[Data[@Name='AuthenticationPackageName']!='Kerberos']]`r`n         and`r`n         *[EventData[Data[@Name='LmPackageName']!='NTLM V2']]`r`n       )`r`n      </Select>`r`n     </Query>`r`n    </QueryList>`r`n    '@`r`n    and also Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-NTLM/Operational' ; Id = 8001,8002 }            `r`n`r`nIf disabled: Lost logs information" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\services\Netlogon\Parameters" -ValueName "AuditNTLMInDomain" -Value 7 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0" -ValueName "AuditReceivingNTLMTraffic" -Value 2 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0" -ValueName "RestrictSendingNTLMTraffic" -Value 1 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\LSASS.exe" -ValueName "AuditLevel" -Value 8 -Type DWord >$null
 	$_
 }
 
@@ -693,10 +715,10 @@ New-GPO -Name "[1mm0rt41][Security](GPO,Computer) LDAP server configuration" | %
 ###########################################################################################
 # [1mm0rt41][Security](GPO,Computer) LSASS Protection (Mimikatz)
 ###########################################################################################
-New-GPO -Name "[1mm0rt41][Security](GPO,Computer) LSASS Protection (Mimikatz)" -Comment "##################################`r`n`r`nProtect the process lsass.exe to avoid an attacker to hijack credentials by dumping lsass.exe`r`n`r`nRequire: Do not deploy on computers that require Smartcard/2FA with DLL not signed by Microsoft            `r`nSide effect: Block all DLL not signed by Microsoft.`r`nIf disabled: An attacker can abuse of dumping lsass.exe to grab AD credentials of past connections.`r`nDoc: https://itm4n.github.io/lsass-runasppl/" | %{
+New-GPO -Name "[1mm0rt41][Security](GPO,Computer) LSASS Protection (Mimikatz)" -Comment "##################################`r`n`r`nProtect the process lsass.exe to avoid an attacker to hijack credentials by dumping lsass.exe`r`n`r`nRequire: Do not deploy on computers that require Smartcard/2FA with DLL not signed by Microsoft            `r`nSide effect: Block all DLL not signed by Microsoft.`r`nIf disabled: An attacker can abuse of dumping lsass.exe to grab AD credentials of past connections.`r`nDoc: https://itm4n.github.io/lsass-runasppl/`r`n`r`nRunAsPPL=1 => Enforce with UEFI + SecureBoot`r`nRunAsPPL=2 => Enforce without UEFI + SecureBoot" | %{
 	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest" -ValueName "UseLogonCredential" -Value 0 -Type DWord >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest" -ValueName "Negotiate" -Value 0 -Type DWord >$null
-	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\LSA" -ValueName "RunAsPPL" -Value 1 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\LSA" -ValueName "RunAsPPL" -Value 2 -Type DWord >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\LSA" -ValueName "DisableRestrictedAdmin" -Value 0 -Type DWord >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\LSA" -ValueName "DisableRestrictedAdminOutboundCreds" -Value 1 -Type DWord >$null
 	$_
@@ -711,8 +733,8 @@ New-GPO -Name "[1mm0rt41][Security](GPO,Computer) LSASS Protection (Mimikatz)(ts
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation" -ValueName "ConcatenateDefaults_AllowDefault" -Value 0 -Type DWORD >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation" -ValueName "AllowDefCredentialsWhenNTLMOnly" -Value 0 -Type DWORD >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation" -ValueName "ConcatenateDefaults_AllowDefNTLMOnly" -Value 0 -Type DWORD >$null
-	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation\AllowDefCredentialsWhenNTLMOnly" -ValueName "1" -Value "" -Type SZ >$null
-	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation\AllowDefaultCredentials" -ValueName "1" -Value "" -Type SZ >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation\AllowDefCredentialsWhenNTLMOnly" -ValueName "1" -Value "" -Type String >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation\AllowDefaultCredentials" -ValueName "1" -Value "" -Type String >$null
 	$_
 }
 
@@ -780,6 +802,15 @@ New-GPO -Name "[1mm0rt41][Security](GPO,Computer) mDNS" -Comment "##############
 ###########################################################################################
 New-GPO -Name "[1mm0rt41][Security](GPO,Computer) IPv6" -Comment "##################################`r`n`r`nProtection against Man-In-The-Middle.`r`nSide effect: None" | %{
 	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters" -ValueName "DisabledComponents" -Value 32 -Type DWord >$null
+	$GpoSessionName = Open-NetGPO -PolicyStore ("{0}\{1}" -f $env:USERDNSDOMAIN,$_.DisplayName)
+	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] IPv6" -Group "[GPO][1mm0rt41][Security](GPO,Computer) IPv6" -Action Block -Direction Outbound -Protocol IPv6 >$null
+	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] IPv6-Frag" -Group "[GPO][1mm0rt41][Security](GPO,Computer) IPv6" -Action Block -Direction Outbound -Protocol IPv6-Frag >$null
+	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] IPv6-Route" -Group "[GPO][1mm0rt41][Security](GPO,Computer) IPv6" -Action Block -Direction Outbound -Protocol IPv6-Route >$null
+	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] ICMPv6" -Group "[GPO][1mm0rt41][Security](GPO,Computer) IPv6" -Action Block -Direction Outbound -Protocol ICMPv6 >$null
+	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] IPv6-NoNxt" -Group "[GPO][1mm0rt41][Security](GPO,Computer) IPv6" -Action Block -Direction Outbound -Protocol IPv6-NoNxt >$null
+	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] IPv6-Opts" -Group "[GPO][1mm0rt41][Security](GPO,Computer) IPv6" -Action Block -Direction Outbound -Protocol IPv6-Opts >$null
+	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] DHCPv6" -Group "[GPO][1mm0rt41][Security](GPO,Computer) IPv6" -Action Block -Direction Outbound -Protocol UDP -RemotePort 547 >$null
+	Save-NetGPO -GPOSession $GpoSessionName >$null
 	$_
 } | New-GPLink -target "$(([ADSI]'LDAP://RootDSE').defaultNamingContext.Value)" -LinkEnabled Yes
 
@@ -997,5 +1028,16 @@ New-GPO -Name "[1mm0rt41][Azure](GPO&Pref,Computer) Deny AzureAD autojoin via Te
 </ScheduledTasks>
 "@ ).Trim() | Out-File -Encoding ASCII "$gpoPath\ScheduledTasks.xml"
 	Get-AdObject -Filter "(objectClass -eq 'groupPolicyContainer') -and (name -eq '$gpoId')" | Set-ADObject -Replace @{gPCMachineExtensionNames="[{00000000-0000-0000-0000-000000000000}{CAB54552-DEEA-4691-817E-ED4A4D1AFC72}][{AADCED64-746C-4633-A97C-D61349046527}{CAB54552-DEEA-4691-817E-ED4A4D1AFC72}]"};
+	$_
+}
+
+
+###########################################################################################
+# [1mm0rt41][Audit](GPO&Pref,Computer) Audit LDAP SASL
+###########################################################################################
+New-GPO -Name "[1mm0rt41][Audit](GPO&Pref,Computer) Audit LDAP SASL" -Comment "##################################`r`n`r`nLog missing LDAP SASL.`r`n=> Event ID of 2889 in the Directory Service log.`r`n`r`nMonitoring for LDAP Binding without Channel Binding.`r`n=> Event ID 3039 in the Directory Service event log.`r`n`r`nPump the size of Directory Service log to 32MB. The default size is 1MB" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Diagnostics" -ValueName "16 LDAP Interface Events" -Value 2 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Directory Service" -ValueName "MaxSize" -Value 33685504 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Directory Service" -ValueName "MaxSizeUpper" -Value 0 -Type DWord >$null
 	$_
 }
