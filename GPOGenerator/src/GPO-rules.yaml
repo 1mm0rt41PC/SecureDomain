@@ -279,6 +279,19 @@ DomainController_Config:
 ###############################################################################
 Hardening:
     ###########################################################################
+    Force NTLMv2 and Kerberos - Disable LM,NTLMv1:
+        ShortPrefix: GPO,Computer
+        Comment: |
+            Force usage of NTLMv2 and Kerberos
+            Disable LM and NTLMv1
+            
+            Side effect: Can block Windows XP and 2003 - Please audit before !
+            If Disabled: Cancel NTLM hardening
+        Hive:
+            HKLM\System\CurrentControlSet\Control\Lsa:
+                NoLMHash: DWord:1
+                LmCompatibilityLevel: DWord:5
+    ###########################################################################
     Enable TLS1.3&TLS1.2&TLS1.1:
         ShortPrefix: GPO,Computer
         Comment: |
@@ -336,7 +349,7 @@ Hardening:
                 AllowEncryptionOracle: DWord:0 # Client applications which use CredSSP will not be able to fall back to the insecure versions and services using CredSSP will not accept unpatched clients.
             HKLM\System\CurrentControlSet\Control\Lsa:
                 DisableDomainCreds: DWord:1 # Network_access_Do_not_allow_storage_of_passwords_and_credentials_for_network_authentication
-        GPLink: $LDAP_DN
+        GPLink: $LDAP_DN 
     ###########################################################################
     LogSystem:
         ShortPrefix: GPO,Computer
@@ -409,19 +422,58 @@ Hardening:
                 AllowBasic: DWord:0
                 AllowDigest: DWord:0
                 AllowKerberos: DWord:1
-                CbtHardeningLevel: SZ:Strict
+                CbtHardeningLevel: String:Strict
                 AllowNegotiate: DWord:0
             HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client:
                 AllowBasic: DWord:0
                 AllowDigest: DWord:0
                 AllowKerberos: DWord:1
-                CbtHardeningLevel: SZ:Strict
+                CbtHardeningLevel: String:Strict
                 AllowNegotiate: DWord:0
         Fw:
             Inbound-Allow:
                 Protocol: TCP
                 LocalPort: "@(5985,5986)"
 
+Log:
+    ###########################################################################
+    LSA & NTLM Audit Mode:
+        ShortPrefix: GPO,Computer
+        Comment: |
+            Windows logs configuration:
+            - Audit LSA protection (RunAsPPL)
+            - Audit incoming NTLM traffic for all accounts:
+                to view =>
+                Get-WinEvent -Filterxml @'
+                <QueryList>
+                 <Query Id="0" Path="security">
+                  <Select Path="security">
+                   *[System[(EventID=4624)]]
+                    and
+                    (
+                     *[EventData[Data[@Name='AuthenticationPackageName']!='Kerberos']]
+                     and
+                     *[EventData[Data[@Name='LmPackageName']!='NTLM V2']]
+                   )
+                  </Select>
+                 </Query>
+                </QueryList>
+                '@
+                and also Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-NTLM/Operational' ; Id = 8001,8002 }            
+            
+            If disabled: Lost logs information
+        Hive:
+            HKLM\SYSTEM\CurrentControlSet\services\Netlogon\Parameters:
+                # Audit NTLM Authentication in this domain: Enable all
+                # 0=>Disable, 1=>"Enable for domain accounts to domain servers", 2=>"Enable for domain accounts", 3=>"Enable for domain servers", 7=>"Enable all"
+                AuditNTLMInDomain: DWord:7
+            HKLM\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0:
+                # Audit incoming NTLM traffic: Enable auditing for all accounts
+                # to view => [System[(EventID=4624)]] and also Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-NTLM/Operational' ; Id = 8001,8002 }
+                AuditReceivingNTLMTraffic: DWord:2
+                RestrictSendingNTLMTraffic: DWord:1
+            HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\LSASS.exe:
+                AuditLevel: DWord:8
 
 ###############################################################################
 Priv:
@@ -697,13 +749,16 @@ Security:
             Side effect: Block all DLL not signed by Microsoft.
             If disabled: An attacker can abuse of dumping lsass.exe to grab AD credentials of past connections.
             Doc: https://itm4n.github.io/lsass-runasppl/
+            
+            RunAsPPL=1 => Enforce with UEFI + SecureBoot
+            RunAsPPL=2 => Enforce without UEFI + SecureBoot
         ShortPrefix: GPO,Computer
         Hive:
             HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest:
                 UseLogonCredential: DWord:0
                 Negotiate: DWord:0
             HKLM\SYSTEM\CurrentControlSet\Control\LSA:
-                RunAsPPL: DWord:1
+                RunAsPPL: DWord:2
                 DisableRestrictedAdmin: DWord:0
                 DisableRestrictedAdminOutboundCreds: DWord:1
     ###########################################################################
@@ -723,9 +778,9 @@ Security:
                 AllowDefCredentialsWhenNTLMOnly: DWORD:0
                 ConcatenateDefaults_AllowDefNTLMOnly: DWORD:0
             HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation\AllowDefCredentialsWhenNTLMOnly:
-                "1": "SZ:"
+                "1": "String:"
             HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation\AllowDefaultCredentials:
-                "1": "SZ:"
+                "1": "String:"
 
     ###########################################################################
     "WIFI-Protection - AirStrike":
@@ -774,6 +829,23 @@ Security:
         Hive:
             HKLM\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters:
                 DisabledComponents: DWord:32
+        Fw:
+            Outbound-Block:
+                IPv6:
+                    Protocol: IPv6
+                IPv6-Frag:
+                    Protocol: IPv6-Frag
+                IPv6-Route:
+                    Protocol: IPv6-Route
+                ICMPv6:
+                    Protocol: ICMPv6
+                IPv6-NoNxt:
+                    Protocol: IPv6-NoNxt
+                IPv6-Opts:
+                    Protocol: IPv6-Opts
+                DHCPv6:
+                    Protocol: UDP
+                    RemotePort: 547
         GPLink: $LDAP_DN
     ###########################################################################
     WPAD:
@@ -1070,3 +1142,45 @@ Azure:
                Type: ImmediateTask
                Command: dsregcmd
                CommandArguments: /debug /leave
+               
+Audit:
+    Audit LDAP SASL:
+        ShortPrefix: GPO,Computer
+        Comment: |
+            Log missing LDAP SASL.
+            => Event ID of 2889 in the Directory Service log.
+            
+            Monitoring for LDAP Binding without Channel Binding.
+            => Event ID 3039 in the Directory Service event log.
+            
+            Pump the size of Directory Service log to 32MB. The default size is 1MB
+            
+            $Hours = 24
+            $DCs = Get-ADDomainController -filter *
+            $InsecureLDAPBinds = @()
+            ForEach ($DC in $DCs) {
+            $Events = Get-WinEvent -ComputerName $DC.Hostname -FilterHashtable @{Logname='Directory Service';Id=2889; StartTime=(Get-Date).AddHours('-$Hours')}
+            ForEach ($Event in $Events) {
+               $eventXML = [xml]$Event.ToXml()
+               $Client = ($eventXML.event.EventData.Data[0])
+               $IPAddress = $Client.SubString(0,$Client.LastIndexOf(':'))
+               $User = $eventXML.event.EventData.Data[1]
+               Switch ($eventXML.event.EventData.Data[2])
+                  {
+                  0 {$BindType = 'Unsigned'}
+                  1 {$BindType = 'Simple'}
+                  }
+               $Row = '' | select IPAddress,User,BindType
+               $Row.IPAddress = $IPAddress
+               $Row.User = $User
+               $Row.BindType = $BindType
+               $InsecureLDAPBinds += $Row
+               }
+            }
+            $InsecureLDAPBinds | Out-Gridview
+        Hive:
+            HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Diagnostics:
+                16 LDAP Interface Events: DWord:2
+            HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Directory Service:
+                MaxSize: DWord:33685504
+                MaxSizeUpper: DWord:0

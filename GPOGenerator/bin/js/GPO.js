@@ -53,7 +53,7 @@ function onCheckboxChange()
 
 			var comment = '';
 			if( gpo['Comment'] ){
-				comment = ' -Comment "##################################`r`n`r`n'+gpo['Comment'].trim().replace(new RegExp('"','g'),'`"').replace(new RegExp('\r','g'),'').replace(new RegExp('\n','g'),'`r`n')+'"'
+				comment = ' -Comment "##################################`r`n`r`n'+gpo['Comment'].trim().replace(new RegExp('"','g'),'`"').replace(new RegExp('\\$','g'),'`$').replace(new RegExp('\r','g'),'').replace(new RegExp('\n','g'),'`r`n')+'"'
 			}
 			
 			release += '###########################################################################################\n';
