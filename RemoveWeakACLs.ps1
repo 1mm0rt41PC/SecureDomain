@@ -422,7 +422,7 @@ function Write-Callstack([System.Management.Automation.ErrorRecord]$ErrorRecord=
 Write-Host "=== Computers ==="
 Get-ADComputer -Filter * | foreach {
 	$obj = [PSCustomObject]@{
-		Name			   = "Group: "+$_.SamAccountName;
+		Name			   = "Computer: "+$_.SamAccountName;
 		DistinguishedName  = $_.DistinguishedName.ToString();
 	}
 	removeWeakAcl_fromUsers $obj $testMode 'isAdUser'
@@ -432,7 +432,7 @@ Get-ADComputer -Filter * | foreach {
 Write-Host "=== Organizational Unit ==="
 Get-ADOrganizationalUnit -Filter * | foreach {
 	$obj = [PSCustomObject]@{
-		Name			   = "Group: "+$_.SamAccountName;
+		Name			   = "OU: "+$_.SamAccountName;
 		DistinguishedName  = $_.DistinguishedName.ToString();
 	}
 	removeWeakAcl_fromUsers $obj $testMode 'isAdUser'
@@ -443,7 +443,7 @@ Get-ADOrganizationalUnit -Filter * | foreach {
 Write-Host "=== Users ==="
 Get-ADUser -Filter * | foreach {
 	$obj = [PSCustomObject]@{
-		Name			   = "Group: "+$_.SamAccountName;
+		Name			   = "User: "+$_.SamAccountName;
 		DistinguishedName  = $_.DistinguishedName.ToString();
 	}
 	removeWeakAcl_fromUsers $obj $testMode 'isAdUser'
