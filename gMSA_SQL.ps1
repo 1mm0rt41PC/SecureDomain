@@ -15,9 +15,9 @@ $targetService   = "${targetServiceClass}/${targetServer}:${portOrInstance}","${
 # On Domain Controller
 ###############################################################################
 # Create Group that is allowed to retrive gmsa password
-New-ADGroup -Name $groupName -GroupeScope Global -GroupCategory Security -Path $OU
+New-ADGroup -Name $groupName -GroupScope Global -GroupCategory Security -Path $OU
 # Create GMSA account
-New-ADServiceAccount -name $gmsaSAN -enabled $true -DNSHostName "${targetServer}.${domain}" -PrincipalsAllowedToRetrieveManagedPassword $groupName -ServicePrincipalName $targetService -KerberosEncryptionType AES128,AES256
+New-ADServiceAccount -name $gmsaSAN -enabled $true -DNSHostName "${gmsaSAN}.${domain}" -PrincipalsAllowedToRetrieveManagedPassword $groupName -ServicePrincipalName $targetService -KerberosEncryptionType AES128,AES256
 
 
 ###############################################################################
