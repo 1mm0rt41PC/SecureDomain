@@ -1,5 +1,12 @@
 $FormatEnumerationLimit=-1
 
-Get-ADUser -Filter { ServicePrincipalName -ne "$null"} -Properties ServicePrincipalName | select SamAccountName, ServicePrincipalName | Out-String -Width 4096
+$root = Get-AdDomain
+$dom = @($root.DNSRoot)
+$dom += Get-AdDomain | Select -ExpandProperty ChildDomains
+
+$dom | %{
+	$dom = Get-AdDomain $_
+	Get-AdUser -Server $dom.PDCEmulator -Properties ServicePrincipalNames -Filter { ServicePrincipalNames -ne "$null"} | where {$_.ServicePrincipalNames -ne $null } | Select SamAccountName,DistinguishedName,ServicePrincipalNames
+} | ConvertTo-Json
 
 Get-ADComputer -Filter { ServicePrincipalName -ne "$null"} -Properties ServicePrincipalName | select SamAccountName, ServicePrincipalName | Out-String -Width 4096
