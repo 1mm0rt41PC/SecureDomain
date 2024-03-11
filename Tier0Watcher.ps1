@@ -24,6 +24,20 @@ $Tier0_SAN = @(
  	'DNSADMINS',
  	'EXCHANGE WINDOWS PERMISSIONS'
 )
+$Tier0_SPN = @(
+	'AgpmServer'
+)
+
+$Tier0_SPN | %{
+	$spn = $_
+ 	Get-ADUser -Filter '*' | where { ($_.ServicePrincipalName -Join ',').Contains($spn)  } | %{
+	 	[PSCustomObject]@{
+			'SPN'= $spn;
+   			'User'= $_.DistinguishedName
+      		}
+  	}
+} | ConvertTo-Json
+
 Get-ADGroup -Filter '*' | where { $Tier0_SID.Contains($_.SID.tostring().split('-')[-1]) -or $Tier0_SID.Contains($_.SID.tostring()) -Or $Tier0_SAN.Contains($_.SamAccountName.ToUpper()) } | %{
 	[PSCustomObject]@{
 		'Group'=$_.SamAccountName;
