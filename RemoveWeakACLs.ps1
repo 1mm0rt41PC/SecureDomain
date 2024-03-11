@@ -432,7 +432,7 @@ Get-ADComputer -Filter * | foreach {
 Write-Host "=== Organizational Unit ==="
 Get-ADOrganizationalUnit -Filter * | foreach {
 	$obj = [PSCustomObject]@{
-		Name			   = "OU: "+$_.SamAccountName;
+		Name			   = "OU: "+$_.DistinguishedName.ToString();
 		DistinguishedName  = $_.DistinguishedName.ToString();
 	}
 	removeWeakAcl_fromUsers $obj $testMode 'isAdUser'
