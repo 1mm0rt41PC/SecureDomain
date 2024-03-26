@@ -55,7 +55,7 @@ $delimiter = ','
 
 # List local users
 Write-Host "List local users"
-Get-LocalUser | select @{n="HostName";e={$env:computername}},Name,AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation > "$syslogStorage\LocalUser_${hostname}.csv"
+Get-LocalUser | select @{n="HostName";e={$env:computername}},Name,AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalUser_${hostname}.csv"
 
 
 # List local group members
@@ -83,7 +83,7 @@ Write-Host "List ScheduledTask"
 @"
 "HostName","TaskName","Next Run Time","Status","Logon Mode","Last Run Time","Last Result","Author","Task To Run","Start In","Comment","Scheduled Task State","Idle Time","Power Management","Run As User","Delete Task If Not Rescheduled","Stop Task If Runs X Hours and X Mins","Schedule","Schedule Type","Start Time","Start Date","End Date","Days","Months","Repeat: Every","Repeat: Until: Time","Repeat: Until: Duration","Repeat: Stop If Still Running"
 $((schtasks.exe /query /V /FO csv)  -join "`r`n")
-"@ | ConvertFrom-CSV | Where { $_.TaskName.Replace('\','').Length -eq $_.TaskName.Length-1 } | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation > "$syslogStorage\ScheduledTask_${hostname}.csv"
+"@ | ConvertFrom-CSV | Where { $_.TaskName.Replace('\','').Length -eq $_.TaskName.Length-1 } | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\ScheduledTask_${hostname}.csv"
 
 
 # List RDP Sessions
@@ -93,7 +93,7 @@ qwinsta | foreach {
 		$session = $($_ -Replace ' {2,}', ',').split(',')
 		echo 1 | select  @{n="HostName";e={$env:computername}}, @{n="User";e={$session[1]}}, @{n="SessionID";e={$session[2]}}, @{n="Status";e={$session[3]}}
 	}
-} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation > "$syslogStorage\RDPSession_${hostname}.csv"
+} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\RDPSession_${hostname}.csv"
 
 
 # List Firewall rules
@@ -102,22 +102,43 @@ Get-NetFirewallRule -PolicyStore ActiveStore | where {$_.Enabled -eq $true } | s
 	@{Name='Protocol';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).Protocol}},
 	@{Name='LocalPort';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).LocalPort}},
 	@{Name='RemotePort';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).RemotePort}},
-	@{Name='RemoteAddress';Expression={($PSItem | Get-NetFirewallAddressFilter -PolicyStore ActiveStore).RemoteAddress}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation > "$syslogStorage\FireWall_Rules_${hostname}.csv"
-Get-NetFirewallProfile | select @{n="HostName";e={$env:computername}},* | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation > "$syslogStorage\FireWall_Status_${hostname}.csv"
+	@{Name='RemoteAddress';Expression={($PSItem | Get-NetFirewallAddressFilter -PolicyStore ActiveStore).RemoteAddress}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWall_Rules_${hostname}.csv"
+Get-NetFirewallProfile | select @{n="HostName";e={$env:computername}},* | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWall_Status_${hostname}.csv"
 
 
 # List local share
 Write-Host "List local share"
 try{
-	Get-SmbShare -ErrorAction Stop | select @{n="HostName";e={$env:computername}},* | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation > "$syslogStorage\SmbShare_${hostname}.csv"
+	Get-SmbShare -ErrorAction Stop | select @{n="HostName";e={$env:computername}},* | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\SmbShare_${hostname}.csv"
 }catch{
-	echo 1 | select @{n="HostName";e={$env:computername}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation > "$syslogStorage\SmbShare_${hostname}.csv"
+	echo 1 | select @{n="HostName";e={$env:computername}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\SmbShare_${hostname}.csv"
 }
 
 
 # List local ip
 Write-Host "List local ip"
-Get-NetIPAddress -AddressFamily IPv4 | ?{ $_.AddressState -ne 'Tentative' } | select @{n="HostName";e={$env:computername}},InterfaceAlias,IPAddress,PrefixLength,PrefixOrigin,AddressState | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation > "$syslogStorage\IpConfig_${hostname}.csv"
+Get-WmiObject Win32_NetworkAdapterConfiguration | ?{ $_.IPEnabled -eq $true -and $_.IPAddress -ne $null -and $_.IPAddress.Count -ge 1 -and $_.IPAddress[0] -ne '' } | %{
+	$row = $_
+	for( $i=0; $i -lt $_.IPAddress.Count; $i++ ){
+		$ret = 1 | select @{n="HostName";e={$env:computername}},@{n="InterfaceIndex";e={$row.InterfaceIndex}},@{n="MACAddress";e={$row.MACAddress}},IPAddress,IPSubnet,DefaultIPGateway,@{n="Description";e={$row.Description}},@{n="DHCPEnabled";e={$row.DHCPEnabled}},@{n="DHCPServer";e={$row.DHCPServer}},@{n="DNSDomain";e={$row.DNSDomain}},@{n="DNSServerSearchOrder";e={$row.DNSServerSearchOrder}},@{n="DNSDomainSuffixSearchOrder";e={$row.DNSDomainSuffixSearchOrder -join ","}},@{n="DomainDNSRegistrationEnabled";e={$row.DomainDNSRegistrationEnabled}},@{n="FullDNSRegistrationEnabled";e={$row.FullDNSRegistrationEnabled}},@{n="TcpipNetbiosOptions";e={$row.TcpipNetbiosOptions}},@{n="WINSPrimaryServer";e={$row.WINSPrimaryServer}}
+		$ret.IPAddress = $_.IPAddress[$i]
+		if( -not $ret.IPAddress.StartsWith('fe80::') ){
+			$ret.IPSubnet = $_.IPSubnet[$i]
+			if($_.DefaultIPGateway -ne $null -and $_.DefaultIPGateway.Count -ge 1){
+				$ret.DefaultIPGateway = $_.DefaultIPGateway[0]
+			}
+			$ret
+		}
+	}
+} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\IpConfig_${hostname}.csv"
+
+
+# List local Services
+Write-Host "List local ip"
+Get-WmiObject Win32_Service | %{
+	$row = $_
+	echo 1 | select @{n="HostName";e={$env:computername}},@{n="DisplayName";e={$row.DisplayName}},@{n="Name";e={$row.Name}},@{n="State";e={$row.State}},@{n="UserName";e={$row.StartName}},@{n="InstallDate";e={$row.InstallDate}},@{n="Started";e={$row.Started}},@{n="Status";e={$row.Status}},@{n="ProcessId";e={$row.ProcessId}},@{n="PathName";e={$row.PathName}}
+} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Services_${hostname}.csv"
 
 
 ## List Windows Update
