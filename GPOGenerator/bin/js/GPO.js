@@ -100,8 +100,6 @@ function onCheckboxChange()
 					var deleteExpiredTaskAfter = '';
 					var taskProperties = '';
 					var clsid = '';
-					tasks[taskCtx] += '	$dateTrigger = ""\n';
-					
 					if( taskType === 'ImmediateTask' ){
 						clsid = '9756B581-76EC-4169-9AFC-0CA8D43ADB5F';
 						deleteExpiredTaskAfter = '<DeleteExpiredTaskAfter>PT0S</DeleteExpiredTaskAfter>';

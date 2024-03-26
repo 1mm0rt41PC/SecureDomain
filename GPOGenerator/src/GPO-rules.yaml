@@ -1184,3 +1184,12 @@ Audit:
             HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Directory Service:
                 MaxSize: DWord:33685504
                 MaxSizeUpper: DWord:0
+    Syslog:
+        Tasks:
+            Syslog:
+               Type: Task
+               Command: powershell
+               CommandArguments: -exec bypass -nop -Command \\dc01.corp.lo\sysvol\dc01.corp.lo\scripts\logger.ps1
+               RunAs: S-1-5-18
+               Context: Machine
+               StartEveryDayAt: 9
