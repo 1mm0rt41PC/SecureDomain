@@ -1,3 +1,54 @@
+<#
+# LOG Server
+# ================================================
+$logs = "C:\logs"
+$domComputer='your-domain.lo\Domain computers'
+$domUser='your-domain.lo\Domain users'
+
+$acl = Get-Acl $logs
+$acl.SetAccessRuleProtection($disableInheritance,$preserveInheritanceACL)
+$acl | Set-Acl $logs
+
+$acl = Get-Acl $logs
+$usersid = New-Object System.Security.Principal.Ntaccount ($domUser)
+$acl.PurgeAccessRules($usersid)
+$acl | Set-Acl $logs
+
+Clean up CREATOR OWNER ACL
+$acl = Get-Acl $logs
+$usersid = New-Object System.Security.Principal.Ntaccount ("S-1-3-0")
+$acl.PurgeAccessRules($usersid)
+$acl | Set-Acl $logs
+
+This folder only
+$acl = Get-Acl $logs
+$fsar = New-Object System.Security.AccessControl.FileSystemAccessRule($domComputer, 'CreateFiles,Traverse,Synchronize', 'Allow')
+$acl.SetAccessRule($fsar)
+$acl | Set-Acl $logs
+
+New-SmbShare -Name "logs$" -Path "$logs" -FullAccess $domComputer'
+
+# DC Server
+# ================================================
+$script='C:\Windows\SYSVOL\domain\scripts\logger.ps1'
+$domComputer='your-domain.lo\Domain computers'
+$domUser='your-domain.lo\Domain users'
+
+$acl = Get-Acl $script
+$acl.SetAccessRuleProtection($disableInheritance,$preserveInheritanceACL)
+$acl | Set-Acl $script
+
+$acl = Get-Acl $script
+$usersid = New-Object System.Security.Principal.Ntaccount ($domUser)
+$acl.PurgeAccessRules($usersid)
+$acl | Set-Acl $script
+
+$acl = Get-Acl $script
+$fsar = New-Object System.Security.AccessControl.FileSystemAccessRule('your-domain.lo\Domain computers', 'ReadAndExecute', 'Allow')
+$acl.SetAccessRule($fsar)
+$acl | Set-Acl $script
+#>
+
 $syslogStorage = '\\DC-SRV01\syslog$'
 $hostname = $env:COMPUTERNAME
 
@@ -60,20 +111,54 @@ echo 1 | select @{n="HostName";e={$env:computername}},@{n="OSVersion";e={[System
 	@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','RunAsPPL',1),
 	@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','DisableRestrictedAdmin',0),
 	@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','DisableRestrictedAdminOutboundCreds',1),
-	@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest','UseLogonCredential',0)
+	@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','LmCompatibilityLevel',5),
+	@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest','UseLogonCredential',0),
+	@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest','Negotiate',0),
+	@('HKLM\Software\Policies\Microsoft Services\AdmPwd','AdmPwdEnabled',1),
+	@('HKLM\Software\Policies\Microsoft Services\AdmPwd','PwdExpirationProtectionEnabled',1),
+	@('HKLM\System\CurrentControlSet\Services\Netlogon\Parameters','RequireSignOrSeal',1),
+	@('HKLM\System\CurrentControlSet\Services\Netlogon\Parameters','SealSecureChannel',1),
+	@('HKLM\System\CurrentControlSet\Services\Netlogon\Parameters','SignSecureChannel',1),
+	@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System','FilterAdministratorToken',1),
+	@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System','LocalAccountTokenFilterPolicy',0),
+	@('HKLM\System\CurrentControlSet\Services\LDAP','LDAPClientIntegrity',2),
+	@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','SecurityLayer',1),
+	@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','UserAuthentication',1),
+	@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','fEncryptRPCTraffic',1),
+	@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','SMB1',0),
+	@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','EnableSecuritySignature',1),
+	@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','RequireSecuritySignature',1),
+	@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','AutoShareWks',0),
+	@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','AutoShareServer',0),
+	@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','RestrictNullSessAccess',1),
+	@('HKLM\System\CurrentControlSet\Services\Rdr\Parameters','EnableSecuritySignature',1),
+	@('HKLM\System\CurrentControlSet\Services\Rdr\Parameters','RequireSecuritySignature',1),
+	@('HKLM\System\CurrentControlSet\Services\LanmanWorkstation','AllowInsecureGuestAuth',0),
+	@('HKLM\System\CurrentControlSet\Services\LanmanWorkstation\Parameters','EnableSecuritySignature',1),
+	@('HKLM\System\CurrentControlSet\Services\LanmanWorkstation\Parameters','RequireSecuritySignature',1),
+	@('HKLM\System\CurrentControlSet\Services\LanmanWorkstation\Parameters','EnablePlainTextPassword',0),
+	@('HKLM\SYSTEM\CurrentControlSet\Services\Netbt\Parameters','NodeType',2),
+	@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient','EnableMulticast',0),
+	@('HKLM\SYSTEM\CurrentControlSet\Services\WinHttpAutoProxySvc','Start',4),
+	@('HKLM\Software\Microsoft\Windows\CurrentVersion\Internet Settings\Wpad','WpadOverride',0),
+	@('HKLM\Software\Microsoft\Windows\CurrentVersion\Internet Settings','AutoDetect',0),
+	@('HKLM\System\currentcontrolset\services\tcpip6\parameters','DisabledComponents',32),
+	@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate','WUServer',''),
+	@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU','UseWUServer',1)
 ) | %{
 	$path=$_[0]
 	$key=$_[1]
 	$expected=$_[2]
-	$ret = echo '' | Select hostname,key,value,expected
+	$ret = echo '' | Select hostname,key,value,expected,compliant
 	$ret.hostname = $hostname
 	$ret.key = "$path\$key"
 	$ret.expected = "$expected"
 	try{
-		$ret.value = (Get-ItemPropertyValue -Path "Registry::$path" -Name $key).ToString()
+		$ret.value = (Get-ItemPropertyValue -Path "Registry::$path" -Name $key -ErrorAction Stop).ToString()
 	}catch{
 		$ret.value = 'undefined'
 	}
+	$ret.compliant = $ret.value -eq $ret.value
 	$ret
 } |  ConvertTo-Csv -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Reg_${hostname}.csv"
 
