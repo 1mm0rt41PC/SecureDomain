@@ -114,6 +114,12 @@ try{
 	echo 1 | select @{n="HostName";e={$env:computername}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation > "$syslogStorage\SmbShare_${hostname}.csv"
 }
 
+
+# List local ip
+Write-Host "List local ip"
+Get-NetIPAddress -AddressFamily IPv4 | ?{ $_.AddressState -ne 'Tentative' } | select @{n="HostName";e={$env:computername}},InterfaceAlias,IPAddress,PrefixLength,PrefixOrigin,AddressState | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation > "$syslogStorage\IpConfig_${hostname}.csv"
+
+
 ## List Windows Update
 # Write-Host "List Windows Update"
 # $updateSearcher = (new-object -com "Microsoft.Update.Session").CreateupdateSearcher()
