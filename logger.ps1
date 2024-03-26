@@ -14,13 +14,13 @@ $usersid = New-Object System.Security.Principal.Ntaccount ($domUser)
 $acl.PurgeAccessRules($usersid)
 $acl | Set-Acl $logs
 
-Clean up CREATOR OWNER ACL
+# Clean up CREATOR OWNER ACL
 $acl = Get-Acl $logs
 $usersid = New-Object System.Security.Principal.Ntaccount ("S-1-3-0")
 $acl.PurgeAccessRules($usersid)
 $acl | Set-Acl $logs
 
-This folder only
+# This folder only
 $acl = Get-Acl $logs
 $fsar = New-Object System.Security.AccessControl.FileSystemAccessRule($domComputer, 'CreateFiles,Traverse,Synchronize', 'Allow')
 $acl.SetAccessRule($fsar)
