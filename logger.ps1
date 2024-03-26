@@ -54,10 +54,12 @@ $hostname = $env:COMPUTERNAME
 $delimiter = ','
 
 # List local users
+Write-Host "List local users"
 Get-LocalUser | select @{n="HostName";e={$env:computername}},Name,AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation > "$syslogStorage\LocalUser_${hostname}.csv"
 
 
 # List local group members
+Write-Host "List local group members"
 Get-WmiObject win32_group -filter "Domain='$hostname'" | %{
 	$row = '' | select HostName,Name,SID,Caption,LocalAccount,Member
 	$row.HostName = $env:COMPUTERNAME
@@ -77,6 +79,7 @@ Get-WmiObject win32_group -filter "Domain='$hostname'" | %{
 
 
 # List ScheduledTask
+Write-Host "List ScheduledTask"
 @"
 "HostName","TaskName","Next Run Time","Status","Logon Mode","Last Run Time","Last Result","Author","Task To Run","Start In","Comment","Scheduled Task State","Idle Time","Power Management","Run As User","Delete Task If Not Rescheduled","Stop Task If Runs X Hours and X Mins","Schedule","Schedule Type","Start Time","Start Date","End Date","Days","Months","Repeat: Every","Repeat: Until: Time","Repeat: Until: Duration","Repeat: Stop If Still Running"
 $((schtasks.exe /query /V /FO csv)  -join "`r`n")
@@ -84,6 +87,7 @@ $((schtasks.exe /query /V /FO csv)  -join "`r`n")
 
 
 # List RDP Sessions
+Write-Host "List RDP Sessions"
 qwinsta | foreach {   
 	if ($_ -NotMatch "services|console" -and $_ -match "Disc|Active|Acti|Déco") {
 		$session = $($_ -Replace ' {2,}', ',').split(',')
@@ -93,6 +97,7 @@ qwinsta | foreach {
 
 
 # List Firewall rules
+Write-Host "List Firewall rules"
 Get-NetFirewallRule -PolicyStore ActiveStore | where {$_.Enabled -eq $true } | sort Direction,Action | Select @{n="HostName";e={$env:computername}},DisplayName,Direction,DisplayGroup,Profile,Action,PolicyStoreSourceType,PolicyStoreSource,
 	@{Name='Protocol';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).Protocol}},
 	@{Name='LocalPort';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).LocalPort}},
@@ -102,16 +107,22 @@ Get-NetFirewallProfile | select @{n="HostName";e={$env:computername}},* | Conver
 
 
 # List local share
-Get-SmbShare | select @{n="HostName";e={$env:computername}},* | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation > "$syslogStorage\SmbShare_${hostname}.csv"
+Write-Host "List local share"
+try{
+	Get-SmbShare -ErrorAction Stop | select @{n="HostName";e={$env:computername}},* | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation > "$syslogStorage\SmbShare_${hostname}.csv"
+}catch{
+	echo 1 | select @{n="HostName";e={$env:computername}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation > "$syslogStorage\SmbShare_${hostname}.csv"
+}
 
-
-# List Windows Update
+## List Windows Update
+# Write-Host "List Windows Update"
 # $updateSearcher = (new-object -com "Microsoft.Update.Session").CreateupdateSearcher()
 # $searchResult = $updateSearcher.Search("IsInstalled=0 and Type='Software'")
 # echo 1 | select @{n="HostName";e={$env:computername}},@{n="OSVersion";e={[System.Environment]::OSVersion.Version.ToString()}},@{n="ReleaseId";e={(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").ReleaseId}},@{n="DisplayVersion";e={(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").DisplayVersion}},@{n="EditionID";e={(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").EditionID}},@{n="Nb Missing Windows Update";e={$searchResult.Updates.Count}},@{n="Missing Windows Update";e={($searchResult.Updates|select Title).Title}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation > "$syslogStorage\General_${hostname}.csv"
 
 
 # List config
+Write-Host "List config"
 @(
 	@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','RunAsPPL',1),
 	@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','DisableRestrictedAdmin',0),
