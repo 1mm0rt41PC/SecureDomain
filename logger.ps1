@@ -52,6 +52,7 @@ $acl | Set-Acl $script
 $syslogStorage = '\\DC-SRV01\syslog$'
 $hostname = $env:COMPUTERNAME
 
+
 # List local users
 Get-LocalUser | select @{n="HostName";e={$env:computername}},Name,AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon | ConvertTo-Csv -NoTypeInformation > "$syslogStorage\LocalUser_${hostname}.csv"
 
@@ -100,13 +101,18 @@ Get-NetFirewallRule -PolicyStore ActiveStore | where {$_.Enabled -eq $true } | s
 	@{Name='RemoteAddress';Expression={($PSItem | Get-NetFirewallAddressFilter -PolicyStore ActiveStore).RemoteAddress}} | ConvertTo-Csv -NoTypeInformation > "$syslogStorage\FireWall_Rules_${hostname}.csv"
 Get-NetFirewallProfile | select @{n="HostName";e={$env:computername}},* | ConvertTo-Csv -NoTypeInformation > "$syslogStorage\FireWall_Status_${hostname}.csv"
 
+
+# List local share
 Get-SmbShare | select @{n="HostName";e={$env:computername}},* | ConvertTo-Csv -NoTypeInformation > "$syslogStorage\SmbShare_${hostname}.csv"
 
-$updateSearcher = (new-object -com "Microsoft.Update.Session").CreateupdateSearcher()
-$searchResult = $updateSearcher.Search("IsInstalled=0 and Type='Software'")
-echo 1 | select @{n="HostName";e={$env:computername}},@{n="OSVersion";e={[System.Environment]::OSVersion.Version.ToString()}},@{n="ReleaseId";e={(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").ReleaseId}},@{n="DisplayVersion";e={(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").DisplayVersion}},@{n="EditionID";e={(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").EditionID}},@{n="Nb Missing Windows Update";e={$searchResult.Updates.Count}},@{n="Missing Windows Update";e={($searchResult.Updates|select Title).Title}} | ConvertTo-Csv -NoTypeInformation > "$syslogStorage\General_${hostname}.csv"
+
+# List Windows Update
+# $updateSearcher = (new-object -com "Microsoft.Update.Session").CreateupdateSearcher()
+# $searchResult = $updateSearcher.Search("IsInstalled=0 and Type='Software'")
+# echo 1 | select @{n="HostName";e={$env:computername}},@{n="OSVersion";e={[System.Environment]::OSVersion.Version.ToString()}},@{n="ReleaseId";e={(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").ReleaseId}},@{n="DisplayVersion";e={(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").DisplayVersion}},@{n="EditionID";e={(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").EditionID}},@{n="Nb Missing Windows Update";e={$searchResult.Updates.Count}},@{n="Missing Windows Update";e={($searchResult.Updates|select Title).Title}} | ConvertTo-Csv -NoTypeInformation > "$syslogStorage\General_${hostname}.csv"
 
 
+# List config
 @(
 	@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','RunAsPPL',1),
 	@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','DisableRestrictedAdmin',0),
@@ -158,8 +164,6 @@ echo 1 | select @{n="HostName";e={$env:computername}},@{n="OSVersion";e={[System
 	}catch{
 		$ret.value = 'undefined'
 	}
-	$ret.compliant = $ret.value -eq $ret.value
+	$ret.compliant = $ret.value -eq $ret.expected
 	$ret
 } |  ConvertTo-Csv -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Reg_${hostname}.csv"
-
-
