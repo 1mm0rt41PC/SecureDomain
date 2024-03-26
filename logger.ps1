@@ -54,3 +54,27 @@ Get-SmbShare | select @{n="HostName";e={$env:computername}},* | ConvertTo-Csv -N
 $updateSearcher = (new-object -com "Microsoft.Update.Session").CreateupdateSearcher()
 $searchResult = $updateSearcher.Search("IsInstalled=0 and Type='Software'")
 echo 1 | select @{n="HostName";e={$env:computername}},@{n="OSVersion";e={[System.Environment]::OSVersion.Version.ToString()}},@{n="ReleaseId";e={(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").ReleaseId}},@{n="DisplayVersion";e={(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").DisplayVersion}},@{n="EditionID";e={(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").EditionID}},@{n="Nb Missing Windows Update";e={$searchResult.Updates.Count}},@{n="Missing Windows Update";e={($searchResult.Updates|select Title).Title}} | ConvertTo-Csv -NoTypeInformation > "$syslogStorage\General_${hostname}.csv"
+
+
+@(
+	@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','RunAsPPL',1),
+	@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','DisableRestrictedAdmin',0),
+	@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','DisableRestrictedAdminOutboundCreds',1),
+	@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest','UseLogonCredential',0)
+) | %{
+	$path=$_[0]
+	$key=$_[1]
+	$expected=$_[2]
+	$ret = echo '' | Select hostname,key,value,expected
+	$ret.hostname = $hostname
+	$ret.key = "$path\$key"
+	$ret.expected = "$expected"
+	try{
+		$ret.value = (Get-ItemPropertyValue -Path "Registry::$path" -Name $key).ToString()
+	}catch{
+		$ret.value = 'undefined'
+	}
+	$ret
+} |  ConvertTo-Csv -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Reg_${hostname}.csv"
+
+
