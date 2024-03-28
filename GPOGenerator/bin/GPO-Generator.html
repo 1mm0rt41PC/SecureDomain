@@ -878,6 +878,25 @@ var gpoYamlRules={
                     "MaxSizeUpper": "DWord:0"
                 }
             }
+        },
+        "Syslog": {
+            "Tasks": {
+                "Syslog": {
+                    "Type": "Task",
+                    "Command": "powershell",
+                    "CommandArguments": "-exec bypass -nop -Command \\\\dc01.corp.lo\\sysvol\\dc01.corp.lo\\scripts\\logger.ps1",
+                    "RunAs": "S-1-5-18",
+                    "Context": "Machine",
+                    "StartEveryDayAt": 9,
+                    "disallowStartIfOnBatteries": false,
+                    "stopIfGoingOnBatteries": false,
+                    "executionTimeLimit": 1,
+                    "restartOnFailureInterval": 10,
+                    "restartOnFailureCount": 3,
+                    "runOnlyIfNetworkAvailable": true,
+                    "randomDelay": 10
+                }
+            }
         }
     }
 };

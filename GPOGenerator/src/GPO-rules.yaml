@@ -68,6 +68,12 @@
 #               CommandArguments: -exec bypass -nop -Command "whoami | Out-File C:\Temp\test.txt"
 #               RunAs: S-1-5-18
 #               Context: Machine
+#               disallowStartIfOnBatteries: false
+#               stopIfGoingOnBatteries: false
+#               executionTimeLimit: 1                   # in hours
+#               restartOnFailureInterval: 10                   # in minutes
+#               restartOnFailureCount: 3
+#               runOnlyIfNetworkAvailable: false
 #           My Task2:
 #               Type: Task
 #               Command: powershell
@@ -75,6 +81,13 @@
 #               RunAs: S-1-5-18
 #               Context: Machine
 #               StartEveryDayAt: 9
+#               disallowStartIfOnBatteries: false
+#               stopIfGoingOnBatteries: false
+#               executionTimeLimit: 1                   # in hours
+#               restartOnFailureInterval: 10                   # in minutes
+#               restartOnFailureCount: 3
+#               runOnlyIfNetworkAvailable: false
+#               randomDelay: 10      # in minutes. if 0 => no random delay
 
 
 __main__:
@@ -1193,3 +1206,10 @@ Audit:
                RunAs: S-1-5-18
                Context: Machine
                StartEveryDayAt: 9
+               disallowStartIfOnBatteries: false
+               stopIfGoingOnBatteries: false
+               executionTimeLimit: 1        # in hours
+               restartOnFailureInterval: 10 # in minutes
+               restartOnFailureCount: 3
+               runOnlyIfNetworkAvailable: true
+               randomDelay: 10              # in minutes. if 0 => no random delay

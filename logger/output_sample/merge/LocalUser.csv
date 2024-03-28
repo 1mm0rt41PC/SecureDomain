@@ -1,0 +1,6 @@
+﻿"HostName","Name","AccountExpires","Enabled","PasswordChangeableDate","PasswordExpires","UserMayChangePassword","PasswordRequired","PasswordLastSet","LastLogon"
+"DC-SRV01","Administrator",,"True","3/8/2024 9:24:09 AM",,"True","True","3/8/2024 9:24:09 AM","3/28/2024 3:34:18 AM"
+"DC-SRV01","Guest",,"False",,,"True","False",,
+"DC-SRV01","krbtgt",,"False","10/2/2023 8:56:53 AM","11/13/2023 7:56:53 AM","True","True","10/2/2023 8:56:53 AM",
+"DC-SRV01","test",,"True","12/5/2023 1:12:53 AM",,"True","True","12/5/2023 1:12:53 AM",
+"DC-SRV01","DC-SRV01$",,"True","3/26/2024 5:31:59 AM",,"True","True","3/26/2024 5:31:59 AM","3/28/2024 2:16:57 AM"

@@ -97,6 +97,13 @@ function onCheckboxChange()
 					var taskCtx = (gpo['Tasks'][taskName]['Context'] && (gpo['Tasks'][taskName]['Context'] === 'User' || gpo['Tasks'][taskName]['Context'] == 'Machine'))?gpo['Tasks'][taskName]['Context']:'Machine';// User or Machine
 					var taskTimer = gpo['Tasks'][taskName]['StartEveryDayAt']?gpo['Tasks'][taskName]['StartEveryDayAt']:'9';
 					var taskAction = (gpo['Tasks'][taskName]['taskAction'] && ['C','R','U','D'].includes(gpo['Tasks'][taskName]['taskAction']))?gpo['Tasks'][taskName]['taskAction']:'R';// R=Replace, C=Create, U=Update, D=Delete
+					var disallowStartIfOnBatteries = (gpo['Tasks'][taskName]['disallowStartIfOnBatteries'] == false || gpo['Tasks'][taskName]['disallowStartIfOnBatteries'] === 'false')?'false':'true';
+					var stopIfGoingOnBatteries = (gpo['Tasks'][taskName]['stopIfGoingOnBatteries'] == false || gpo['Tasks'][taskName]['stopIfGoingOnBatteries'] === 'false')?'false':'true';
+					var runOnlyIfNetworkAvailable = (gpo['Tasks'][taskName]['runOnlyIfNetworkAvailable'] == false || gpo['Tasks'][taskName]['runOnlyIfNetworkAvailable'] === 'false')?'false':'true';
+					var executionTimeLimit = (gpo['Tasks'][taskName]['executionTimeLimit'] && !isNaN(gpo['Tasks'][taskName]['executionTimeLimit']))?gpo['Tasks'][taskName]['executionTimeLimit']:'1';
+					var restartOnFailureInterval = (gpo['Tasks'][taskName]['restartOnFailureInterval'] && !isNaN(gpo['Tasks'][taskName]['restartOnFailureInterval']))?gpo['Tasks'][taskName]['restartOnFailureInterval']:'10';
+					var restartOnFailureCount = (gpo['Tasks'][taskName]['restartOnFailureCount'] && !isNaN(gpo['Tasks'][taskName]['restartOnFailureCount']))?gpo['Tasks'][taskName]['restartOnFailureCount']:'3';
+					var randomDelay = (gpo['Tasks'][taskName]['randomDelay'] && !isNaN(gpo['Tasks'][taskName]['randomDelay']))?gpo['Tasks'][taskName]['randomDelay']:0;
 					var deleteExpiredTaskAfter = '';
 					var taskProperties = '';
 					var clsid = '';
@@ -107,9 +114,56 @@ function onCheckboxChange()
 						taskTriggers = '<TimeTrigger><StartBoundary>%LocalTimeXmlEx%</StartBoundary><EndBoundary>%LocalTimeXmlEx%</EndBoundary><Enabled>true</Enabled></TimeTrigger>'
 					}else{
 						clsid = 'D8896631-B747-47a7-84A6-C155337F3BC8';
-						taskTriggers = '<CalendarTrigger><StartBoundary>$((Get-Date).AddDays(1).ToString("yyyy-MM-ddT{0:d2}:00:00" -f '+taskTimer+'))</StartBoundary><Enabled>true</Enabled><ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay></CalendarTrigger>';
+						taskTriggers = '';
+						taskTriggers += '<CalendarTrigger>';
+						taskTriggers += 	'<StartBoundary>$((Get-Date).AddDays(1).ToString("yyyy-MM-ddT{0:d2}:00:00" -f '+taskTimer+'))</StartBoundary>';
+						taskTriggers += 	'<Enabled>true</Enabled>';
+						taskTriggers += 	'<ScheduleByDay>';
+						taskTriggers += 		'<DaysInterval>1</DaysInterval>';
+						taskTriggers += 	'</ScheduleByDay>';
+						if( randomDelay ){
+							taskTriggers += '<RandomDelay>PT'+randomDelay+'M</RandomDelay>';
+						}
+						taskTriggers += '</CalendarTrigger>';
 					}
-					tasks[taskCtx] += '<'+taskType+'V2 clsid="{'+clsid+'}" name="[GPO] '+taskName+'" image="0" changed="$((Get-Date).ToString("yyyy-MM-dd HH:mm:ss"))" uid="{D98A502B-7563-4A3D-A4EA-5B4EE8E63364}" '+taskProperties+'><Properties action="'+taskAction+'" name="[GPO] '+taskName+'" runAs="'+taskAs+'" logonType="S4U"><Task version="1.2"><RegistrationInfo><Author>$($env:USERDOMAIN)\\$($env:USERNAME)</Author><Description>This task need to run with '+taskAs+' // GPO Id: $gpoId // GPO Name: $gpoName</Description></RegistrationInfo><Principals><Principal id="Author"><UserId>'+taskAs+'</UserId><LogonType>S4U</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals><Settings><IdleSettings><Duration>PT5M</Duration><WaitTimeout>PT1H</WaitTimeout><StopOnIdleEnd>false</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>true</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>true</StopIfGoingOnBatteries><AllowHardTerminate>true</AllowHardTerminate><StartWhenAvailable>true</StartWhenAvailable><AllowStartOnDemand>true</AllowStartOnDemand><Enabled>true</Enabled><Hidden>false</Hidden><ExecutionTimeLimit>PT2H</ExecutionTimeLimit><Priority>7</Priority>'+deleteExpiredTaskAfter+'<RestartOnFailure><Interval>PT5M</Interval><Count>3</Count></RestartOnFailure></Settings><Actions Context="Author"><Exec><Command>'+taskCmd+'</Command><Arguments>'+taskCmdArg+'</Arguments></Exec></Actions><Triggers>'+taskTriggers+'</Triggers></Task></Properties></'+taskType+'V2>\n';
+					tasks[taskCtx] += '<'+taskType+'V2 clsid="{'+clsid+'}" name="[GPO] '+taskName.replace('"','')+'" image="0" changed="$((Get-Date).ToString("yyyy-MM-dd HH:mm:ss"))" uid="{D98A502B-7563-4A3D-A4EA-5B4EE8E63364}" '+taskProperties+'>';
+					tasks[taskCtx] += 	'<Properties action="'+taskAction+'" name="[GPO] '+taskName.replace('"','')+'" runAs="'+taskAs+'" logonType="S4U"><Task version="1.2">'
+					tasks[taskCtx] +=		'<RegistrationInfo>';
+					tasks[taskCtx] +=			'<Author>$($env:USERDOMAIN)\\$($env:USERNAME)</Author>';
+					tasks[taskCtx] +=			'<Description><![CDATA[This task need to run with '+taskAs+' // GPO Id: $gpoId // GPO Name: $gpoName]]></Description>';
+					tasks[taskCtx] +=		'</RegistrationInfo>';
+					tasks[taskCtx] +=		'<Principals><Principal id="Author">';
+					tasks[taskCtx] +=			'<UserId>'+taskAs+'</UserId>';
+					tasks[taskCtx] +=			'<LogonType>S4U</LogonType>';
+					tasks[taskCtx] +=			'<RunLevel>HighestAvailable</RunLevel>';
+					tasks[taskCtx] +=		'</Principal></Principals>';
+					tasks[taskCtx] +=		'<Settings>';
+					tasks[taskCtx] +=			'<IdleSettings>';
+					tasks[taskCtx] +=				'<Duration>PT5M</Duration>';
+					tasks[taskCtx] +=				'<WaitTimeout>PT1H</WaitTimeout>';
+					tasks[taskCtx] +=				'<StopOnIdleEnd>false</StopOnIdleEnd>';
+					tasks[taskCtx] +=				'<RestartOnIdle>false</RestartOnIdle>';
+					tasks[taskCtx] +=			'</IdleSettings>';					
+					tasks[taskCtx] +=			'<MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>';
+					tasks[taskCtx] +=			'<DisallowStartIfOnBatteries>'+disallowStartIfOnBatteries+'</DisallowStartIfOnBatteries>';
+					tasks[taskCtx] +=			'<StopIfGoingOnBatteries>'+stopIfGoingOnBatteries+'</StopIfGoingOnBatteries>';
+					tasks[taskCtx] +=			'<AllowHardTerminate>true</AllowHardTerminate>';
+					tasks[taskCtx] +=			'<StartWhenAvailable>true</StartWhenAvailable>';
+					tasks[taskCtx] +=			'<AllowStartOnDemand>true</AllowStartOnDemand>';
+					tasks[taskCtx] +=			'<Enabled>true</Enabled>';
+					tasks[taskCtx] +=			'<Hidden>false</Hidden>';
+					tasks[taskCtx] +=			'<ExecutionTimeLimit>PT'+executionTimeLimit+'H</ExecutionTimeLimit>';
+					tasks[taskCtx] +=			'<Priority>7</Priority>';
+					tasks[taskCtx] +=			deleteExpiredTaskAfter;
+					tasks[taskCtx] +=			'<RestartOnFailure>';
+					tasks[taskCtx] +=				'<Interval>PT'+restartOnFailureInterval+'M</Interval>';
+					tasks[taskCtx] +=				'<Count>'+restartOnFailureCount+'</Count>';
+					tasks[taskCtx] +=			'</RestartOnFailure>';
+					tasks[taskCtx] +=			'<RunOnlyIfNetworkAvailable>'+runOnlyIfNetworkAvailable+'</RunOnlyIfNetworkAvailable>';
+					tasks[taskCtx] +=		'</Settings>';
+					tasks[taskCtx] +=		'<Actions Context="Author"><Exec><Command>'+taskCmd+'</Command><Arguments>'+taskCmdArg+'</Arguments></Exec></Actions>';
+					tasks[taskCtx] +=		'<Triggers>'+taskTriggers+'</Triggers>';
+					tasks[taskCtx] += '</Task></Properties></'+taskType+'V2>\n';
 				}
 				for( ctx in tasks )
 				{
