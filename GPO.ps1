@@ -775,6 +775,9 @@ New-GPO -Name "[1mm0rt41][Security](GPO,Computer) Disable print spooler" | %{
 ###########################################################################################
 New-GPO -Name "[1mm0rt41][Security](GPO,Computer) LLMNR" -Comment "##################################`r`n`r`nProtection against Man-In-The-Middle.`r`nSide effect: Check first that dns suffix is deployed everywhere" | %{
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient" -ValueName "EnableMulticast" -Value 0 -Type DWord >$null
+	$GpoSessionName = Open-NetGPO -PolicyStore ("{0}\{1}" -f $env:USERDNSDOMAIN,$_.DisplayName)
+	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] Drop LLMNR" -Group "[GPO][1mm0rt41][Security](GPO,Computer) LLMNR" -Action Block -Direction Outbound -Protocol UDP -RemotePort 5355 >$null
+	Save-NetGPO -GPOSession $GpoSessionName >$null
 	$_
 } | New-GPLink -target "$(([ADSI]'LDAP://RootDSE').defaultNamingContext.Value)" -LinkEnabled Yes
 
@@ -784,6 +787,9 @@ New-GPO -Name "[1mm0rt41][Security](GPO,Computer) LLMNR" -Comment "#############
 ###########################################################################################
 New-GPO -Name "[1mm0rt41][Security](GPO,Computer) NetBios" -Comment "##################################`r`n`r`nProtection against Man-In-The-Middle.`r`nSide effect: Check first that dns suffix is deployed everywhere" | %{
 	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\Netbt\Parameters" -ValueName "NodeType" -Value 2 -Type DWord >$null
+	$GpoSessionName = Open-NetGPO -PolicyStore ("{0}\{1}" -f $env:USERDNSDOMAIN,$_.DisplayName)
+	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] Drop NetBios" -Group "[GPO][1mm0rt41][Security](GPO,Computer) NetBios" -Action Block -Direction Outbound -Protocol UDP -RemotePort 137 >$null
+	Save-NetGPO -GPOSession $GpoSessionName >$null
 	$_
 } | New-GPLink -target "$(([ADSI]'LDAP://RootDSE').defaultNamingContext.Value)" -LinkEnabled Yes
 
