@@ -39,8 +39,8 @@ New-GPO -Name "[Firewall](GPO,Computer) Default rules for DC" | %{
 	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] Allow * for admin" -Action Allow -Direction Inbound -RemoteAddress $global:IP_ADMIN >$null
 	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] Allow * for DC" -Action Allow -Inbound Outbound -RemoteAddress $global:IP_DC >$null
 
-	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] Allow * TCP except 3389" -Action Allow -Direction Outbound -RemotePort @('0-444','446-65535') -Protocol TCP >$null
-	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] Allow * UDP except 3389" -Action Allow -Direction Outbound -RemotePort @('0-444','446-65535') -Protocol UDP >$null
+	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] Allow * TCP except 445" -Action Allow -Direction Outbound -RemotePort @('0-444','446-65535') -Protocol TCP >$null
+	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] Allow * UDP except 445" -Action Allow -Direction Outbound -RemotePort @('0-444','446-65535') -Protocol UDP >$null
 	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] Allow * for DC" -Action Allow -Direction Outbound -RemoteAddress $global:IP_DC >$null
 	
 	New-NetFirewallRule -Enabled True -Profile Any -ErrorAction Continue -GPOSession $GpoSessionName -DisplayName "[GPO] Allow * for AATPSensor" -Action Allow -Direction Outbound -Service AATPSensor >$null
