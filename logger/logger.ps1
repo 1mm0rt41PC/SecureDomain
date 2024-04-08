@@ -237,6 +237,24 @@ Write-Host "List config"
 	$ret
 } |  ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Configuration_${hostname}.csv"
 
+
+# Check SCCM NAA
+$ret = echo '' | Select hostname,hasNAA
+$ret.hostname = $hostname
+try {
+	$naa = Get-WmiObject -namespace "root\ccm\policy\Machine\ActualConfig" -class "CCM_NetworkAccessAccount" -ErrorAction Stop
+  	if( $naa.NetworkAccessPassword.Length -gt 0 ){
+		$ret.hasNAA = $true
+ 	}else{
+		$ret.hasNAA = $false
+ 	}
+	
+}catch{
+	$ret.hasNAA = $false
+}
+$ret | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\SCCM_${hostname}.csv"
+
+
 # Log the activity
 Stop-Transcript > $null
 Write-EventLog -LogName System -Source Logger2CSV -EntryType Information -Event 1 -Message $(cat $log | Out-String)
