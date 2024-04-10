@@ -818,6 +818,11 @@ Security:
         Hive:
             HKLM\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient:
                 EnableMulticast: DWord:0
+        Fw:
+            Outbound-Block:
+                Drop LLMNR:
+                    Protocol: UDP
+                    RemotePort: 5355
         GPLink: $LDAP_DN
     ###########################################################################
     NetBios:
@@ -826,6 +831,11 @@ Security:
         Hive:
             HKLM\SYSTEM\CurrentControlSet\Services\Netbt\Parameters:
                 NodeType: DWord:2
+        Fw:
+            Outbound-Block:
+                Drop NetBios:
+                    Protocol: UDP
+                    RemotePort: 137
         GPLink: $LDAP_DN
     ###########################################################################
     mDNS:

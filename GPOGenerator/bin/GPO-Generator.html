@@ -41,7 +41,8 @@ pre code.hljs {
 
 </head><body>
 <div>
-	<input id="prefix" type="text" style="width:50%;" value="1mm0rt41" placeholder="Prefix of GPO" />
+	<input id="prefix" type="text" style="width:50%;" value="1mm0rt41" placeholder="Prefix of GPO" /><br />
+	<textarea id="custom" style="width:50%;"></textarea>
 </div>
 <pre><code class="powershell hljs language-powershell" id="release"></code></pre><br />
 <script type="text/javascript">
@@ -622,6 +623,14 @@ var gpoYamlRules={
                     "EnableMulticast": "DWord:0"
                 }
             },
+            "Fw": {
+                "Outbound-Block": {
+                    "Drop LLMNR": {
+                        "Protocol": "UDP",
+                        "RemotePort": 5355
+                    }
+                }
+            },
             "GPLink": "$LDAP_DN"
         },
         "NetBios": {
@@ -630,6 +639,14 @@ var gpoYamlRules={
             "Hive": {
                 "HKLM\\SYSTEM\\CurrentControlSet\\Services\\Netbt\\Parameters": {
                     "NodeType": "DWord:2"
+                }
+            },
+            "Fw": {
+                "Outbound-Block": {
+                    "Drop NetBios": {
+                        "Protocol": "UDP",
+                        "RemotePort": 137
+                    }
                 }
             },
             "GPLink": "$LDAP_DN"

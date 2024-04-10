@@ -379,4 +379,15 @@ function onCheckboxChange()
 var prefix=document.getElementById('prefix');
 prefix.addEventListener('change', onCheckboxChange, false);
 prefix.addEventListener('keyup', function(e){if(e.keyCode === 13){onCheckboxChange();}}, false);
+
+var customCode = document.getElementById('custom');
+customCode.addEventListener('change', function(){
+	document.getElementById('release').innerHTML=hljs.highlightAuto(document.getElementById('custom').value).value;	
+}, false);
+customCode.addEventListener('keyup', function(e){
+	if(e.keyCode === 13){
+		document.getElementById('release').innerHTML=hljs.highlightAuto(document.getElementById('custom').value).value;
+	}
+}, false);
+
 onCheckboxChange();
