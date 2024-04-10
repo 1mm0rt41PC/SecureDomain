@@ -255,6 +255,28 @@ try {
 $ret | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\SCCM_${hostname}.csv"
 
 
+# SecEdit
+$tmp = (New-TemporaryFile).FullName
+SecEdit.exe /export /cfg $tmp
+$lastType = ''
+cat $tmp | % {
+	if( $_.startswith('[') ){
+		$lastType = $_
+	}else{
+		if( $lastType -ne '[Unicode]' -and $lastType -ne '[Version]' ){
+			$tmp = $_.replace(' = ',';').replace('=',';').split(';')
+			$row = echo 1 | select hostname,category,key,val
+			$row.hostname = $hostname;
+			$row.category = $lastType;
+			$row.key = $tmp[0].trim('"');
+			$row.val = $tmp[1].trim('"');
+			return $row
+		}
+	}
+} | ConvertTo-Csv -NoTypeInformation -Delimiter $delimiter | Out-File -Encoding UTF8 "$syslogStorage\SecEdit_${hostname}.csv"
+rm -force $tmp
+
+
 # Log the activity
 Stop-Transcript > $null
 Write-EventLog -LogName System -Source Logger2CSV -EntryType Information -Event 1 -Message $(cat $log | Out-String)
