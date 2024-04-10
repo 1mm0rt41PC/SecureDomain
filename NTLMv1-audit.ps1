@@ -16,7 +16,7 @@ Get-GPO -Name "[Security](GPO,Computer) Force NTLMv2 prio but allow NTLMv1 and L
 }
 
 #>
-$c =  Get-Credential
+
 $xml = @'
 	<QueryList>
 		<Query Id="0" Path="security">
@@ -32,8 +32,8 @@ $xml = @'
 		</Query>
 	</QueryList>
 '@
-(Get-ADDomainController  -Filter *).HostName | Where { $_ -notin @('dc1.fqdn','dc3.fqdn') } | ForEach-Object {
-	Get-WinEvent -ComputerName $_ -FilterXml $xml  -ErrorAction SilentlyContinue -Credential $c | ForEach-Object {
+(Get-ADDomainController  -Filter *).HostName | ForEach-Object {
+	Get-WinEvent -ComputerName $_ -FilterXml $xml  -ErrorAction SilentlyContinue | ForEach-Object {
 		$h = @{}
 		([xml]$_.Toxml()).Event.EventData.Data | ForEach-Object {
 			$h.Add($_.'Name',$_.'#text')
@@ -43,7 +43,18 @@ $xml = @'
 } | Out-GridView
 
 
-# NTLM client blocked audit: 
+# OR 
+Get-WinEvent -FilterXml $xml  -ErrorAction SilentlyContinue | ForEach-Object {
+	$h = @{}
+	([xml]$_.Toxml()).Event.EventData.Data | ForEach-Object {
+		$h.Add($_.'Name',$_.'#text')
+	}
+	[PSCustomObject]$h
+} | Export-CSV -NoTypeInformation -Encoding UTF8 "C:\Windows\SYSVOL\domain\logs\$($env:COMPUTERNAME)_Events-4624_$((Get-Date).ToString('yyyyMMddHH')).csv"
+
+
+
+# NTLMv1 and NTLMv2 client blocked audit: 
 # Audit outgoing NTLM authentication traffic that would be blocked.
 Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-NTLM/Operational' ; Id = 8001,8002 } | ForEach-Object {
 	$e = $_
