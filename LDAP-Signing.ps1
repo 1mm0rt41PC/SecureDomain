@@ -34,21 +34,14 @@ New-GPO -Name "[1mm0rt41][Audit](GPO,Computer) Audit LDAP SASL" -Comment "Log mi
 Get-WinEvent -FilterHashtable @{Logname='Directory Service';Id=2889; StartTime=(get-date).AddHours("-12")} | %{
 	# Loop through each event and output the
 	$eventXML = [xml]$_.ToXml()
-	# Build Our Values
-	$Id = $eventXML.Event.System.EventID
-	$Client = ($eventXML.event.EventData.Data[0])
-	$IPAddress = $Client.SubString(0,$Client.LastIndexOf(":")) #Accomodates for IPV6 Addresses
-	$User = $eventXML.event.EventData.Data[1]
-	Switch ($eventXML.event.EventData.Data[2])
-    {
-		0 {$BindType = "Unsigned"}
-		1 {$BindType = "Simple"}
-	}
-	# Add Them To a Row in our Array
 	$Row = "" | select IPAddress,User,BindType
-	$Row.IPAddress = $IPAddress
-	$Row.User = $User
-	$Row.BindType = $BindType
-	# Add the row to our Array
+	$Client = ($eventXML.event.EventData.Data[0])
+	$Row.IPAddress = $Client.SubString(0,$Client.LastIndexOf(":")) #Accomodates for IPV6 Addresses
+	$Row.User = $eventXML.event.EventData.Data[1]
+	Switch ($eventXML.event.EventData.Data[2])
+	{
+		0 {$Row.BindType = "Unsigned"}
+		1 {$Row.BindType = "Simple"}
+	}
 	$Row
 } | Export-CSV -NoTypeInformation -Encoding UTF8 "\\DC01.corp.lo\log$\$($env:COMPUTERNAME)_Events_$((Get-Date).ToString('yyyyMMddHH')).csv"
