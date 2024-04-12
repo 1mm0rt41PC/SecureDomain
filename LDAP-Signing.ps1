@@ -26,6 +26,8 @@ New-GPO -Name "[1mm0rt41][Audit](GPO,Computer) Audit LDAP SASL" -Comment "Log mi
   # Directory Service log to be 32MB to start with. The default size is 1MB
   $_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Directory Service" -ValueName "MaxSize" -Value 33685504 -Type DWORD >$null
   $_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Directory Service" -ValueName "MaxSizeUpper" -Value 0 -Type DWORD >$null
+  # Enable LDAPS CB when supported => enable log 3039
+  $_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Parameters" -ValueName LdapEnforceChannelBinding -Value 1 -Type DWORD >$null
   $_
 }
 #
