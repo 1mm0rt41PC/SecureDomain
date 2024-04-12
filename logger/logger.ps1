@@ -219,7 +219,8 @@ Write-Host "List config"
 	@('HKLM\Software\Microsoft\Windows\CurrentVersion\Internet Settings','AutoDetect',0),
 	@('HKLM\System\currentcontrolset\services\tcpip6\parameters','DisabledComponents',32),
 	@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate','WUServer',''),
-	@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU','UseWUServer',1)
+	@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU','UseWUServer',1),
+ 	@('HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters','SearchList', 'suffix-dns.mycorp.local,suffix2.corp.lo')
 ) | %{
 	$path=$_[0]
 	$key=$_[1]
