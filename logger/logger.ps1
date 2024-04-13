@@ -141,10 +141,38 @@ Get-NetFirewallProfile | select @{n="HostName";e={$env:computername}},* | Conver
 Write-Host "List local share"
 try{
 	$smb = Get-SmbShare -ErrorAction Stop | select @{n="HostName";e={$env:computername}},*
-	$smb | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\SmbShare_${hostname}.csv"
+	$data = $smb | %{
+		$cRow = $_
+		$row = echo 1 | select @{n="HostName";e={$cRow.HostName}},@{n="Name";e={$cRow.Name}},@{n="Path";e={$cRow.Path}},@{n="Description";e={$cRow.Description}},@{n="CurrentUsers";e={$cRow.CurrentUsers}},@{n="CompressData";e={$cRow.CompressData}},@{n="EncryptData";e={$cRow.EncryptData}},smb_IdentityReference,smb_FileSystemRights,smb_AccessControlType,path_IdentityReference,path_FileSystemRights,path_AccessControlType,path_Owner
+		$_.PresetPathAcl.Access | %{		
+			$row.smb_AccessControlType = $_.AccessControlType
+			$row.smb_FileSystemRights = $_.FileSystemRights
+			$row.smb_IdentityReference = $_.IdentityReference
+			$row
+		}	
+	}
+
+	$data += $smb | %{
+		$cRow = $_
+		$row = echo 1 | select @{n="HostName";e={$cRow.HostName}},@{n="Name";e={$cRow.Name}},@{n="Path";e={$cRow.Path}},@{n="Description";e={$cRow.Description}},@{n="CurrentUsers";e={$cRow.CurrentUsers}},@{n="CompressData";e={$cRow.CompressData}},@{n="EncryptData";e={$cRow.EncryptData}},smb_IdentityReference,smb_FileSystemRights,smb_AccessControlType,path_IdentityReference,path_FileSystemRights,path_AccessControlType,path_Owner
+		try{
+			$acl = Get-Acl $_.Path
+			$row.path_Owner = $acl.Owner
+			$acl | select -ExpandProperty Access | %{		
+				$row.path_AccessControlType = $_.AccessControlType
+				$row.path_FileSystemRights = $_.FileSystemRights
+				$row.path_IdentityReference = $_.IdentityReference
+				$row
+			}
+		}catch{}
+	}
+	
+	$data = $data | Sort Path | ConvertTo-Csv -NoTypeInformation | sort -Unique	
+	$($data | where { $_.Contains('path_Owner') }; $data | where { -not $_.Contains('path_Owner') }) | Out-File -Encoding UTF8 "$syslogStorage\SmbShare_${hostname}.csv"
 }catch{
 	echo 1 | select @{n="HostName";e={$env:computername}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\SmbShare_${hostname}.csv"
 }
+
 
 
 # List local ip
