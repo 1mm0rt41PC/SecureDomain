@@ -294,12 +294,12 @@ cat $tmp | % {
 		$lastType = $_
 	}else{
 		if( $lastType -ne '[Unicode]' -and $lastType -ne '[Version]' ){
-			$tmp = $_.replace(' = ',';').replace('=',';').split(';')
+			$tmprow = $_.replace(' = ',';').replace('=',';').split(';')
 			$row = echo 1 | select hostname,category,key,val
 			$row.hostname = $hostname;
 			$row.category = $lastType;
-			$row.key = $tmp[0].trim('"');
-			$row.val = $tmp[1].trim('"');
+			$row.key = $tmprow[0].trim('"');
+			$row.val = $tmprow[1].trim('"');
 			return $row
 		}
 	}
