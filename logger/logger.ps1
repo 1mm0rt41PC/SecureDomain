@@ -72,7 +72,7 @@ $delimiter = ','
 New-EventLog -LogName System -Source Logger2CSV -ErrorAction SilentlyContinue;
 
 $ErrorActionPreference = "Stop"
-$log = (New-TemporaryFile).FullName
+$log = "$($env:TMP)\$([guid]::NewGuid().ToString())"
 Start-Transcript -Path $log -Force 
 
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
@@ -288,9 +288,7 @@ $ret | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encodi
 
 # SecEdit
 Write-Host "List SecEdit"
-$tmp = $env:TMP
-$tmp = "\"
-$tmp += [guid]::NewGuid().ToString()
+$tmp = "$($env:TMP)\$([guid]::NewGuid().ToString())"
 SecEdit.exe /export /cfg $tmp
 $lastType = ''
 cat $tmp | % {
