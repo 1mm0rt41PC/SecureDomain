@@ -288,7 +288,9 @@ $ret | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encodi
 
 # SecEdit
 Write-Host "List SecEdit"
-$tmp = (New-TemporaryFile).FullName
+$tmp = $env:TMP
+$tmp = "\"
+$tmp += [guid]::NewGuid().ToString()
 SecEdit.exe /export /cfg $tmp
 $lastType = ''
 cat $tmp | % {
