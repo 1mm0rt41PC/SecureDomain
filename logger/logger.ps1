@@ -5,6 +5,8 @@ $logs = "C:\logs"
 $domComputer='your-domain.lo\Domain computers'
 $domUser='your-domain.lo\Domain users'
 
+mkdir -force $logs
+
 $acl = Get-Acl $logs
 $acl.SetAccessRuleProtection($disableInheritance,$preserveInheritanceACL)
 $acl | Set-Acl $logs
