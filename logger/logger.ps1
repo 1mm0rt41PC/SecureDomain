@@ -269,6 +269,7 @@ Write-Host "List config"
 
 
 # Check SCCM NAA
+Write-Host "List SCCM NAA"
 $ret = echo '' | Select hostname,hasNAA
 $ret.hostname = $hostname
 try {
@@ -286,6 +287,7 @@ $ret | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encodi
 
 
 # SecEdit
+Write-Host "List SecEdit"
 $tmp = (New-TemporaryFile).FullName
 SecEdit.exe /export /cfg $tmp
 $lastType = ''
