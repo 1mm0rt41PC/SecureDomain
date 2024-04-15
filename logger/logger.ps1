@@ -84,10 +84,14 @@ if( -not $scriptPath.StartsWith("\\") ){
 }
 Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Files storage: $syslogStorage\*_${hostname}.csv"
 
+
 # List local users
 Write-Host "List local users"
-Get-LocalUser | select @{n="HostName";e={$env:computername}},Name,AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalUser_${hostname}.csv"
-
+try {
+	Get-LocalUser | select @{n="HostName";e={$env:computername}},Name,AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalUser_${hostname}.csv"
+}catch{
+	echo 1 | select @{n="HostName";e={$env:computername}},@{n="Name";e={"Powershell v2 only - Get-User not supported"}},AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalUser_${hostname}.csv"
+}
 
 # List local group members
 Write-Host "List local group members"
@@ -129,12 +133,32 @@ qwinsta | foreach {
 
 # List Firewall rules
 Write-Host "List Firewall rules"
-Get-NetFirewallRule -PolicyStore ActiveStore | where {$_.Enabled -eq $true } | sort Direction,Action | Select @{n="HostName";e={$env:computername}},DisplayName,Direction,DisplayGroup,Profile,Action,PolicyStoreSourceType,PolicyStoreSource,
-	@{Name='Protocol';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).Protocol}},
-	@{Name='LocalPort';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).LocalPort}},
-	@{Name='RemotePort';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).RemotePort}},
-	@{Name='RemoteAddress';Expression={($PSItem | Get-NetFirewallAddressFilter -PolicyStore ActiveStore).RemoteAddress}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallRules_${hostname}.csv"
-Get-NetFirewallProfile | select @{n="HostName";e={$env:computername}},* | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallStatus_${hostname}.csv"
+try {
+	Get-NetFirewallRule -PolicyStore ActiveStore | where {$_.Enabled -eq $true } | sort Direction,Action | Select @{n="HostName";e={$env:computername}},DisplayName,Direction,DisplayGroup,Profile,Action,PolicyStoreSourceType,PolicyStoreSource,
+		@{Name='Protocol';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).Protocol}},
+		@{Name='LocalPort';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).LocalPort}},
+		@{Name='RemotePort';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).RemotePort}},
+		@{Name='RemoteAddress';Expression={($PSItem | Get-NetFirewallAddressFilter -PolicyStore ActiveStore).RemoteAddress}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallRules_${hostname}.csv"
+	Get-NetFirewallProfile | select @{n="HostName";e={$env:computername}},* | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallStatus_${hostname}.csv"
+}catch{
+	echo 1 | select @{n="HostName";e={$env:computername}},@{n="DisplayName";e={"Powershell v2 only - FW not supported"}},Direction,DisplayGroup,Profile,Action,PolicyStoreSourceType,PolicyStoreSource,Protocol,LocalPort,RemotePort,RemoteAddress | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallStatus_${hostname}.csv"
+}
+
+
+# List Process
+Write-Host "List Process"
+Get-WmiObject Win32_Process | % {
+	$p = $_
+	$row = echo 1 | Select @{n="HostName";e={$env:computername}},Owner,OwnerDomain,@{n="ProcessId";e={$p.ProcessId}},@{n="ParentProcessId";e={$p.ParentProcessId}},@{n="CommandLine";e={$p.CommandLine}},@{n="Description";e={$p.Description}},@{n="ExecutablePath";e={$p.ExecutablePath}},@{n="Name";e={$p.Name}},@{n="SessionId";e={$p.SessionId}},@{n="CreationDate";e={$p.CreationDate}}
+    try {
+		$u = $p.GetOwner()
+        $row.Owner = $u.User
+        $row.OwnerDomain = $u.Domain
+    } catch {
+		Write-Host "err"
+    }	
+	return $row
+} | where { $_.OwnerDomain -ne $env:computername -and $_.OwnerDomain -ne 'NT AUTHORITY' -and $_.OwnerDomain -ne 'Window Manager' -and $_.OwnerDomain -ne 'Font Driver Host' } | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Process_${hostname}.csv"
 
 
 # List local share
@@ -172,7 +196,6 @@ try{
 }catch{
 	echo 1 | select @{n="HostName";e={$env:computername}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\SmbShare_${hostname}.csv"
 }
-
 
 
 # List local ip
