@@ -31,8 +31,14 @@ Get-ADObject -Filter * -SearchBase ("CN=Public Key Services,CN=Services,CN=Confi
 ########################################################
 # IF YOU ARE READ TO APPLY ALL CHANGE, SET IT TO $false
 $testMode=$true
+$global:viewIfValid=$true
+$global:checkOwner=$true
+$global:checkInheritanceACL=$true
 ########################################################
 ########################################################
+$global:viewIfValid=Read-Host "Verbose mode that show valid acl ?"
+$global:checkOwner=Read-Host "Control owner ship ?"
+$global:checkInheritanceACL=Read-Host "Control ACL without inheritance ?"
 
 $global:count_ACL = 0;
 $global:count_Owner = 0;
@@ -178,6 +184,9 @@ $PKI_CertUsage=@{
 #>
 function setOwnerToDA( $obj, $modePreview=$true, $setOwnerSID=($global:domain_SID+"-512"), $setOwnerName=(SidTo-String '-512'), $allowOwnerComputer=$false )
 {
+	if( $global:checkOwner -ne $true ){
+		return ;
+ 	}
 	try{
 		$comppath = $obj.DistinguishedName.ToString()
 		$comppath = "AD:$comppath"
@@ -190,10 +199,12 @@ function setOwnerToDA( $obj, $modePreview=$true, $setOwnerSID=($global:domain_SI
 			return;
 		}
 		if( $acl.Owner -eq $setOwnerName -or $Secure_SID.Contains($acl.Owner) -or ($allowOwnerComputer -eq $true -and $acl.Owner.EndsWith("$"))){
-			Write-Host -NoNewLine -ForegroundColor Green "[+]"
-			Write-Host -NoNewLine " Valid owner for ``"
-			Write-Host -NoNewLine -ForegroundColor DarkCyan $obj.Name
-			Write-Host "``"
+  			if( $global:viewIfValid -eq $true ){
+				Write-Host -NoNewLine -ForegroundColor Green "[+]"
+				Write-Host -NoNewLine " Valid owner for ``"
+				Write-Host -NoNewLine -ForegroundColor DarkCyan $obj.Name
+				Write-Host "``"
+			}
 			return ;
 		}
 		$global:count_Owner += 1
@@ -328,6 +339,9 @@ function isAdGroup( $sUser )
 #>
 function removeWeakAcl_fromUsers( $obj, $modePreview=$true, $funcTester='isAdUser' )
 {
+	if( $global:checkInheritanceACL -ne $true ){
+		return;
+ 	}
 	try{
 		$comppath = $obj.DistinguishedName
 		$comppath = "AD:$comppath"
@@ -364,10 +378,12 @@ function removeWeakAcl_fromUsers( $obj, $modePreview=$true, $funcTester='isAdUse
 				}
 			}
 		}else{
-			Write-Host -NoNewLine -ForegroundColor Green "[+]"
-			Write-Host -NoNewLine " Valid ACL ($funcTester) for ``"
-			Write-Host -NoNewLine -ForegroundColor DarkCyan $obj.Name
-			Write-Host "``"
+  			if( $global:viewIfValid -eq $true ){
+				Write-Host -NoNewLine -ForegroundColor Green "[+]"
+				Write-Host -NoNewLine " Valid ACL ($funcTester) for ``"
+				Write-Host -NoNewLine -ForegroundColor DarkCyan $obj.Name
+				Write-Host "``"
+   			}
 		}
 	}Catch{
 		Write-Host -NoNewLine -BackgroundColor DarkRed "[@] Error when reading ACL for ``"
