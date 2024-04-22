@@ -36,6 +36,11 @@ $global:checkOwner=$true
 $global:checkInheritanceACL=$true
 ########################################################
 ########################################################
+
+$ErrorActionPreference = "Stop"
+$log = "$($env:TMP)\$([guid]::NewGuid().ToString()).txt"
+Start-Transcript -Path $log -Force 
+
 $global:viewIfValid=Read-Host "Verbose mode that show valid acl ?"
 $global:checkOwner=Read-Host "Control owner ship ?"
 $global:checkInheritanceACL=Read-Host "Control ACL without inheritance ?"
@@ -596,6 +601,9 @@ $template | where {$_.isEnabled -and -not [string]::IsNullOrEmpty($_.CriticalCer
 Write-Host "==============================================================================="
 Write-Host -NoNewLine "Number of weak ACL: "
 Write-Host -ForegroundColor DarkCyan $global:count_ACL
+
+Stop-Transcript > $null
+Write-Host "All actions have been logger into $log"
 Write-Host -NoNewLine "Number of invalid owner: "
 Write-Host -ForegroundColor DarkCyan $global:count_Owner
 
