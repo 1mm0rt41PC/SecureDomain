@@ -41,9 +41,9 @@ $ErrorActionPreference = "Stop"
 $log = "$($env:TMP)\$([guid]::NewGuid().ToString()).txt"
 Start-Transcript -Path $log -Force 
 
-$global:viewIfValid=Read-Host "Verbose mode that show valid acl ?"
-$global:checkOwner=Read-Host "Control owner ship ?"
-$global:checkInheritanceACL=Read-Host "Control ACL without inheritance ?"
+$global:viewIfValid=$(Read-Host "Verbose mode that show valid acl [Y/n] ?") -in @("y","Y","")
+$global:checkOwner=$(Read-Host "Control owner ship [Y/n] ?") -in @("y","Y","")
+$global:checkInheritanceACL=$(Read-Host "Control ACL without inheritance [Y/n] ?") -in @("y","Y","")
 
 $global:count_ACL = 0;
 $global:count_Owner = 0;
