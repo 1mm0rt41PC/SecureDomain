@@ -17,23 +17,25 @@
 <#
 # To view only Owner of each item:
 
-Get-ADOrganizationalUnit -Filter * | Select-Object DistinguishedName, @{Label="Owner";Expression={(get-acl -Path ("AD:"+$_.DistinguishedName)).Owner}}
-Get-ADGroup -Filter * | Select-Object Name, @{Label="Owner";Expression={(get-acl -Path ("AD:"+$_.DistinguishedName)).Owner}},DistinguishedName
-Get-ADUser -Filter * | Select-Object Name, @{Label="Owner";Expression={(get-acl -Path ("AD:"+$_.DistinguishedName)).Owner}},DistinguishedName
-Get-ADComputer -Filter * | Select-Object Name, @{Label="Owner";Expression={(get-acl -Path ("AD:"+$_.DistinguishedName)).Owner}},DistinguishedName
-Get-GPO -All | Select-Object DisplayName, Owner, Path
-Get-ADObject -Filter * -SearchBase ("CN=MicrosoftDNS,DC=DomainDnsZones,"+$global:domain_Base) | Select-Object Name, @{Label="Owner";Expression={(get-acl -Path ("AD:"+$_.DistinguishedName)).Owner}},DistinguishedName
-Get-ADObject -Filter * -SearchBase ("CN=MicrosoftDNS,DC=ForestDnsZones,"+$global:domain_Base) | Select-Object Name, @{Label="Owner";Expression={(get-acl -Path ("AD:"+$_.DistinguishedName)).Owner}},DistinguishedName
-Get-ADObject -Filter * -SearchBase ("CN=Public Key Services,CN=Services,CN=Configuration,"+$global:domain_Base) | Select-Object Name, @{Label="Owner";Expression={(get-acl -Path ("AD:"+$_.DistinguishedName)).Owner}},DistinguishedName
+$output  = Get-ADOrganizationalUnit -Filter * -Property nTSecurityDescriptor | Select-Object @{Label="Type";Expression={"OU"}},DistinguishedName, @{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},Name
+$output += Get-ADGroup -Filter * -Property nTSecurityDescriptor | Select-Object @{Label="Type";Expression={"Group"}},DistinguishedName, @{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},Name
+$output += Get-ADUser -Filter * -Property nTSecurityDescriptor | Select-Object @{Label="Type";Expression={"User"}},DistinguishedName, @{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},Name
+$output += Get-ADComputer -Filter * -Property nTSecurityDescriptor | Select-Object @{Label="Type";Expression={"Computer"}},DistinguishedName, @{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},Name
+$output += Get-ADObject -Filter * -Property nTSecurityDescriptor,DisplayName,gPCFileSysPath,DistinguishedName -SearchBase ("CN=Policies,CN=System,"+$((Get-ADDomain).DistinguishedName)) | Select-Object @{Label="Type";Expression={"GPO"}},DistinguishedName,@{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},@{Label="Name";Expression={$_.DisplayName}}
+$output += Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=MicrosoftDNS,DC=DomainDnsZones,"+$((Get-ADDomain).DistinguishedName)) | Select-Object @{Label="Type";Expression={"DomainDnsZones"}},DistinguishedName,@{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},Name
+$output += Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=MicrosoftDNS,DC=ForestDnsZones,"+$((Get-ADDomain).DistinguishedName)) | Select-Object @{Label="Type";Expression={"DomainDnsZones"}},DistinguishedName,@{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},Name
+$output += Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=Public Key Services,CN=Services,CN=Configuration,"+$((Get-ADDomain).DistinguishedName)) | Select-Object @{Label="Type";Expression={"DomainDnsZones"}},DistinguishedName,@{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},Name
+$output | Out-GridView
 #>
 
 ########################################################
 ########################################################
 # IF YOU ARE READ TO APPLY ALL CHANGE, SET IT TO $false
 $testMode=$true
-$global:viewIfValid=$true
-$global:checkOwner=$true
-$global:checkInheritanceACL=$true
+$global:viewIfValid = $true
+$global:checkOwner = $true
+$global:checkInheritanceACL = $true
+$global:checkVulnADCSTemplate = $false
 ########################################################
 ########################################################
 
@@ -441,20 +443,22 @@ function Write-Callstack([System.Management.Automation.ErrorRecord]$ErrorRecord=
 
 # Let's clean up this AD
 Write-Host "=== Computers ==="
-Get-ADComputer -Filter * | foreach {
+Get-ADComputer -Filter * -Property nTSecurityDescriptor | foreach {
 	$obj = [PSCustomObject]@{
-		Name			   = "Computer: "+$_.SamAccountName;
-		DistinguishedName  = $_.DistinguishedName.ToString();
+		Name                   = "Computer: "+$_.SamAccountName;
+		DistinguishedName      = $_.DistinguishedName.ToString();
+  		nTSecurityDescriptor   = $_.nTSecurityDescriptor;
 	}
 	removeWeakAcl_fromUsers $obj $testMode 'isAdUser'
 	removeWeakAcl_fromUsers $obj $testMode 'isAdComputer'
 	setOwnerToDA $obj $testMode
 }
 Write-Host "=== Organizational Unit ==="
-Get-ADOrganizationalUnit -Filter * | foreach {
+Get-ADOrganizationalUnit -Filter * -Property nTSecurityDescriptor | foreach {
 	$obj = [PSCustomObject]@{
 		Name			   = "OU: "+$_.DistinguishedName.ToString();
-		DistinguishedName  = $_.DistinguishedName.ToString();
+		DistinguishedName          = $_.DistinguishedName.ToString();
+    		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
 	}
 	removeWeakAcl_fromUsers $obj $testMode 'isAdUser'
 	removeWeakAcl_fromUsers $obj $testMode 'isAdComputer'
@@ -462,10 +466,11 @@ Get-ADOrganizationalUnit -Filter * | foreach {
 }
 
 Write-Host "=== Users ==="
-Get-ADUser -Filter * | foreach {
+Get-ADUser -Filter * -Property nTSecurityDescriptor | foreach {
 	$obj = [PSCustomObject]@{
 		Name			   = "User: "+$_.SamAccountName;
-		DistinguishedName  = $_.DistinguishedName.ToString();
+		DistinguishedName          = $_.DistinguishedName.ToString();
+		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
 	}
 	removeWeakAcl_fromUsers $obj $testMode 'isAdUser'
 	removeWeakAcl_fromUsers $obj $testMode 'isAdComputer'
@@ -473,10 +478,11 @@ Get-ADUser -Filter * | foreach {
 }
 
 Write-Host "=== Groups ==="
-Get-ADGroup -Filter * | foreach {
+Get-ADGroup -Filter * -Property nTSecurityDescriptor | foreach {
 	$obj = [PSCustomObject]@{
 		Name			   = "Group: "+$_.SamAccountName;
-		DistinguishedName  = $_.DistinguishedName.ToString();
+		DistinguishedName          = $_.DistinguishedName.ToString();
+    		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
 	}
 	removeWeakAcl_fromUsers $obj $testMode 'isAdUser'
 	removeWeakAcl_fromUsers $obj $testMode 'isAdComputer'
@@ -487,32 +493,37 @@ Write-Host "=== GPO ==="
 Get-GPO -all | foreach {
 	$obj = [PSCustomObject]@{
 		Name			   = "GPO: "+$_.DisplayName;
-		DistinguishedName  = $_.Path.ToString();
+		DistinguishedName          = $_.Path.ToString();
+    		nTSecurityDescriptor       = $null;
+                Owner                      = $_.Owner;
 	}
 	setOwnerToDA $obj $testMode
 }
 
 Write-Host "=== DNS Entries ==="
-Get-ADObject -Filter * -SearchBase ("CN=MicrosoftDNS,DC=DomainDnsZones,"+$global:domain_Base) | foreach {
+Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=MicrosoftDNS,DC=DomainDnsZones,"+$global:domain_Base) | foreach {
 	$obj = [PSCustomObject]@{
-		Name			   = "DNS: "+$_.DistinguishedName.ToString();
-		DistinguishedName  = $_.DistinguishedName.ToString();
+		Name			   = "DomainDnsZones: "+$_.DistinguishedName.ToString();
+		DistinguishedName          = $_.DistinguishedName.ToString();
+    		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
 	}
 	setOwnerToDA $obj $testMode -allowOwnerComputer $true
 }
-Get-ADObject -Filter * -SearchBase ("CN=MicrosoftDNS,DC=ForestDnsZones,"+$global:domain_Base) | foreach {
+Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=MicrosoftDNS,DC=ForestDnsZones,"+$global:domain_Base) | foreach {
 	$obj = [PSCustomObject]@{
-		Name			   = "DNS: "+$_.DistinguishedName.ToString();
-		DistinguishedName  = $_.DistinguishedName.ToString();
+		Name			   = "ForestDnsZones: "+$_.DistinguishedName.ToString();
+		DistinguishedName          = $_.DistinguishedName.ToString();
+    		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
 	}
 	setOwnerToDA $obj $testMode -allowOwnerComputer $true
 }
 
 Write-Host "=== ADCS Entries ==="
-Get-ADObject -Filter * -SearchBase ("CN=Public Key Services,CN=Services,CN=Configuration,"+$global:domain_Base) -Properties * | foreach {
+Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=Public Key Services,CN=Services,CN=Configuration,"+$global:domain_Base) -Properties * | foreach {
 	$obj = [PSCustomObject]@{
 		Name			   = "PKI: "+$_.DistinguishedName.ToString();
-		DistinguishedName  = $_.DistinguishedName.ToString();
+		DistinguishedName          = $_.DistinguishedName.ToString();
+      		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
 	}
 	setOwnerToDA $obj $testMode
 	removeWeakAcl_fromUsers $obj $testMode 'isAdUser'
@@ -545,53 +556,55 @@ Get-ADObject -Filter * -SearchBase ("CN=Public Key Services,CN=Services,CN=Confi
 		}
 	}
 }
-$CA = Get-Adobject -SearchBase ("CN=Enrollment Services,CN=Public Key Services,CN=Services,CN=Configuration,"+$global:domain_Base) -Filter {objectClass -eq "pKIEnrollmentService"} -Properties *
-$template = Get-ADObject -SearchBase ("CN=Public Key Services,CN=Services,CN=Configuration,"+$global:domain_Base) -Filter {objectClass -eq "pKICertificateTemplate"} -Properties * | foreach {
-	$obj = [PSCustomObject]@{
-		DisplayName		 = "PKI: "+$_.DistinguishedName.ToString();
-		Name				= $_.Name.ToString();
-		DistinguishedName   = $_.DistinguishedName.ToString();
-		isEnabled		   = $false;
-		pKIExtendedKeyUsage = $_.pKIExtendedKeyUsage;
-		msPKIEnrollmentFlag = [MS_PKI_ENROLLMENT_FLAG]$_['msPKI-Enrollment-Flag'];
-		msPKICertificateNameFlag = [MS_PKI_CERTIFICATE_NAME_FLAG]$_['msPKI-Certificate-Name-Flag'];
-		AutoEnrollment	  = $false;
-		Enrollee_Supplies_Subject = $false;
-		ManagementApproval		= $false;
-		CriticalCertUsage		 = $false;
+if( $global:checkVulnADCSTemplate -eq $true ){
+	$CA = Get-Adobject -SearchBase ("CN=Enrollment Services,CN=Public Key Services,CN=Services,CN=Configuration,"+$global:domain_Base) -Filter {objectClass -eq "pKIEnrollmentService"} -Properties *
+	$template = Get-ADObject -Property nTSecurityDescriptor -SearchBase ("CN=Public Key Services,CN=Services,CN=Configuration,"+$global:domain_Base) -Filter {objectClass -eq "pKICertificateTemplate"} -Properties * | foreach {
+		$obj = [PSCustomObject]@{
+			DisplayName		 = "PKI: "+$_.DistinguishedName.ToString();
+			Name				= $_.Name.ToString();
+			DistinguishedName   = $_.DistinguishedName.ToString();
+			isEnabled		   = $false;
+			pKIExtendedKeyUsage = $_.pKIExtendedKeyUsage;
+			msPKIEnrollmentFlag = [MS_PKI_ENROLLMENT_FLAG]$_['msPKI-Enrollment-Flag'];
+			msPKICertificateNameFlag = [MS_PKI_CERTIFICATE_NAME_FLAG]$_['msPKI-Certificate-Name-Flag'];
+			AutoEnrollment	  = $false;
+			Enrollee_Supplies_Subject = $false;
+			ManagementApproval		= $false;
+			CriticalCertUsage		 = $false;
+		}
+		$obj.isEnabled = ($CA | where { $_.certificateTemplates.Contains($obj.Name) }) -ne $null;
+		$obj.CriticalCertUsage = ($PKI_CertUsage.Keys | where { $obj.pKIExtendedKeyUsage.Contains($_) } | foreach { $PKI_CertUsage[$_] }) -join ","
+		$obj.AutoEnrollment = $obj.msPKIEnrollmentFlag.HasFlag([MS_PKI_ENROLLMENT_FLAG]::AUTO_ENROLLMENT)
+		$obj.Enrollee_Supplies_Subject = $obj.msPKICertificateNameFlag.HasFlag([MS_PKI_CERTIFICATE_NAME_FLAG]::ENROLLEE_SUPPLIES_SUBJECT)
+		$obj.ManagementApproval = $obj.msPKIEnrollmentFlag.HasFlag([MS_PKI_ENROLLMENT_FLAG]::PEND_ALL_REQUESTS)
+		$obj
 	}
-	$obj.isEnabled = ($CA | where { $_.certificateTemplates.Contains($obj.Name) }) -ne $null;
-	$obj.CriticalCertUsage = ($PKI_CertUsage.Keys | where { $obj.pKIExtendedKeyUsage.Contains($_) } | foreach { $PKI_CertUsage[$_] }) -join ","
-	$obj.AutoEnrollment = $obj.msPKIEnrollmentFlag.HasFlag([MS_PKI_ENROLLMENT_FLAG]::AUTO_ENROLLMENT)
-	$obj.Enrollee_Supplies_Subject = $obj.msPKICertificateNameFlag.HasFlag([MS_PKI_CERTIFICATE_NAME_FLAG]::ENROLLEE_SUPPLIES_SUBJECT)
-	$obj.ManagementApproval = $obj.msPKIEnrollmentFlag.HasFlag([MS_PKI_ENROLLMENT_FLAG]::PEND_ALL_REQUESTS)
-	$obj
-}
-$template | where {$_.isEnabled} | Select Name,msPKIEnrollmentFlag,msPKICertificateNameFlag,AutoEnrollment,Enrollee_Supplies_Subject,ManagementApproval,CriticalCertUsage | ft *
-
-$template | where {$_.isEnabled -and -not [string]::IsNullOrEmpty($_.CriticalCertUsage) -and $_.Enrollee_Supplies_Subject -and -not $obj.ManagementApproval } | foreach {
-	$comppath = "AD:$($_.DistinguishedName)"
-	$acl = Get-Acl -Path $comppath
-	$acl.Access | where { -not ($Secure_SID.Contains($_.IdentityReference.ToString())) } | foreach {
-		$ace = $_.ActiveDirectoryRights.ToString()
-		if( $ace.Contains('ExtendedRight') ){
-			$IdentityReference = $_.IdentityReference
-			$ObjectType = $_.ObjectType.ToString()
-			$extd = $ObjectType
-			try{
-				$extd = $ExtendedPriv[$ObjectType][0]				
-			}Catch{}
-			$ace = $ace.Replace('ExtendedRight',"ExtendedRight ($extd)")
-			if( $ace.Contains('Certificate-Enrollment') ){
-				Write-Host -NoNewLine -BackgroundColor DarkRed "CRITICAL /!\"
-				Write-Host -NoNewLine " ``"
-				Write-Host -NoNewLine -ForegroundColor DarkCyan $IdentityReference
-				Write-Host -NoNewLine "`` can forge a malicious certificate via ``"
-				Write-Host -NoNewLine -ForegroundColor DarkCyan $comppath
-				Write-Host -NoNewLine " "
-				Write-Host -NoNewLine -BackgroundColor DarkGreen "(PreviewMode ! NO CHANGE on ACL)"
-				Write-Host "."
-				$global:count_ACL += 1
+	$template | where {$_.isEnabled} | Select Name,msPKIEnrollmentFlag,msPKICertificateNameFlag,AutoEnrollment,Enrollee_Supplies_Subject,ManagementApproval,CriticalCertUsage | ft *
+	
+	$template | where {$_.isEnabled -and -not [string]::IsNullOrEmpty($_.CriticalCertUsage) -and $_.Enrollee_Supplies_Subject -and -not $obj.ManagementApproval } | foreach {
+		$comppath = "AD:$($_.DistinguishedName)"
+		$acl = Get-Acl -Path $comppath
+		$acl.Access | where { -not ($Secure_SID.Contains($_.IdentityReference.ToString())) } | foreach {
+			$ace = $_.ActiveDirectoryRights.ToString()
+			if( $ace.Contains('ExtendedRight') ){
+				$IdentityReference = $_.IdentityReference
+				$ObjectType = $_.ObjectType.ToString()
+				$extd = $ObjectType
+				try{
+					$extd = $ExtendedPriv[$ObjectType][0]				
+				}Catch{}
+				$ace = $ace.Replace('ExtendedRight',"ExtendedRight ($extd)")
+				if( $ace.Contains('Certificate-Enrollment') ){
+					Write-Host -NoNewLine -BackgroundColor DarkRed "CRITICAL /!\"
+					Write-Host -NoNewLine " ``"
+					Write-Host -NoNewLine -ForegroundColor DarkCyan $IdentityReference
+					Write-Host -NoNewLine "`` can forge a malicious certificate via ``"
+					Write-Host -NoNewLine -ForegroundColor DarkCyan $comppath
+					Write-Host -NoNewLine " "
+					Write-Host -NoNewLine -BackgroundColor DarkGreen "(PreviewMode ! NO CHANGE on ACL)"
+					Write-Host "."
+					$global:count_ACL += 1
+				}
 			}
 		}
 	}
