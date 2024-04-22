@@ -17,14 +17,25 @@
 <#
 # To view only Owner of each item:
 
-$output  = Get-ADOrganizationalUnit -Filter * -Property nTSecurityDescriptor | Select-Object @{Label="Type";Expression={"OU"}},DistinguishedName, @{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},Name
-$output += Get-ADGroup -Filter * -Property nTSecurityDescriptor | Select-Object @{Label="Type";Expression={"Group"}},DistinguishedName, @{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},Name
-$output += Get-ADUser -Filter * -Property nTSecurityDescriptor | Select-Object @{Label="Type";Expression={"User"}},DistinguishedName, @{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},Name
-$output += Get-ADComputer -Filter * -Property nTSecurityDescriptor | Select-Object @{Label="Type";Expression={"Computer"}},DistinguishedName, @{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},Name
-$output += Get-ADObject -Filter * -Property nTSecurityDescriptor,DisplayName,gPCFileSysPath,DistinguishedName -SearchBase ("CN=Policies,CN=System,"+$((Get-ADDomain).DistinguishedName)) | Select-Object @{Label="Type";Expression={"GPO"}},DistinguishedName,@{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},@{Label="Name";Expression={$_.DisplayName}}
-$output += Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=MicrosoftDNS,DC=DomainDnsZones,"+$((Get-ADDomain).DistinguishedName)) | Select-Object @{Label="Type";Expression={"DomainDnsZones"}},DistinguishedName,@{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},Name
-$output += Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=MicrosoftDNS,DC=ForestDnsZones,"+$((Get-ADDomain).DistinguishedName)) | Select-Object @{Label="Type";Expression={"DomainDnsZones"}},DistinguishedName,@{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},Name
-$output += Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=Public Key Services,CN=Services,CN=Configuration,"+$((Get-ADDomain).DistinguishedName)) | Select-Object @{Label="Type";Expression={"DomainDnsZones"}},DistinguishedName,@{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},Name
+$allowedSid = @(
+	(New-Object System.Security.Principal.SecurityIdentifier("$((Get-ADDomain).DomainSID.Value)-512")).Translate( [System.Security.Principal.NTAccount]).Value;
+	(New-Object System.Security.Principal.SecurityIdentifier("$((Get-ADDomain).DomainSID.Value)-500")).Translate( [System.Security.Principal.NTAccount]).Value;
+	(New-Object System.Security.Principal.SecurityIdentifier("S-1-5-18")).Translate( [System.Security.Principal.NTAccount]).Value;
+	(New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")).Translate( [System.Security.Principal.NTAccount]).Value;
+)
+$output = Get-ADObject -SearchBase (Get-ADDomain).DistinguishedName -Filter '*' -Properties DisplayName,Name,ObjectClass,nTSecurityDescriptor | Select ObjectClass,DistinguishedName,@{Label="Owner";Expression={$_.nTSecurityDescriptor.Owner}},@{Label="Name";Expression={
+if($_.ObjectClass -eq 'groupPolicyContainer' ){
+	if( $_.DisplayName -ne $null -and $_.DisplayName -ne ""){$_.DisplayName}else{$_.Name}
+}else{
+	if( $_.Name -ne $null -and $_.Name -ne ""){$_.Name}else{$_.DisplayName}
+}
+}} | where { -not( $_.Owner -in $allowedSid) }
+try {
+	$output += Get-ChildItem -ErrorAction Ignore -Recurse C:\Windows\SYSVOL\domain | Select-Object @{Label="ObjectClass";Expression={"Folder SYSVOL"}},@{Label="DistinguishedName";Expression={$_.FullName}}, @{Label="Owner";Expression={(Get-Acl -Path $_.FullName).Owner}},Name | where { -not( $_.Owner -in $allowedSid) }
+}catch{
+	Write-Host "Unable to test ACL for SYSVOL. Please run the script on Domain Controller"
+}
+$output | ConvertTo-Csv -NoTypeInformation | Out-File -Encoding UTF8 C:\All-ACL.csv
 $output | Out-GridView
 #>
 
