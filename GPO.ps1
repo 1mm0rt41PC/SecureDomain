@@ -1018,6 +1018,16 @@ New-GPO -Name "[1mm0rt41][NiceToHave](GPO,Computer) Unlimited Path length" -Comm
 
 
 ###########################################################################################
+# [1mm0rt41][NiceToHave](GPO,Computer) DNS Suffix
+###########################################################################################
+New-GPO -Name "[1mm0rt41][NiceToHave](GPO,Computer) DNS Suffix" -Comment "##################################`r`n`r`nThe typical name resolution process for Microsoft Windows 2000 uses the primary DNS suffix and any connection-specific DNS suffixes. If these suffixes do not work, the devolution of the primary DNS suffix is attempted by the name resolution process.`r`n`r`nWhen a domain suffix search list is configured on a client, only that list is used. The primary DNS suffix and any connection-specific DNS suffixes are not used, nor is the devolution of the primary suffix attempted. The domain suffix search list is an administrative override of all standard Domain Name Resolver (DNR) look-up mechanisms.`r`n`r`nSide effect: None`r`nIf disabled: Can block access to some ressource that doesn't known AD Suffix" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -ValueName "SearchList" -Value "suffix-dns.mycorp.local,suffix2.corp.lo" -Type String >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient" -ValueName "SearchList" -Value "suffix-dns.mycorp.local,suffix2.corp.lo" -Type String >$null
+	$_
+}
+
+
+###########################################################################################
 # [1mm0rt41][Azure](GPO&Pref,Computer) Deny AzureAD autojoin via Teams
 ###########################################################################################
 New-GPO -Name "[1mm0rt41][Azure](GPO&Pref,Computer) Deny AzureAD autojoin via Teams" -Comment "##################################`r`n`r`nDeny Teams&co to autojoin device to AzureAD`r`n`r`nTo detect if the computer/user is AAD auto join:`r`n1) Check:`r`n    dsregcmd.exe /debug /status`r`n2) Unenroll:`r`n    dsregcmd.exe /debug /leave (as SYSTEM)`r`n3) Reinstall `"Microsoft.AAD.BrokerPlugin`" in the context of the user session`r`n    Add-AppxPackage -Register `"C:\Windows\SystemApps\Microsoft.AAD.BrokerPlugin_cw5n1h2txyewy\Appxmanifest.xml`" -DisableDevelopmentMode -ForceApplicationShutdown`r`n4) Clear all `"Microsoft.AAD.BrokerPlugin`" cache (as local ADMIN)`r`n    Get-ItemProperty -Path `"C:\Users\*\AppData\Local\Packages\Microsoft.AAD.BrokerPlugin*`" | %{ rmdir /q /s `"`$(`$_.FullName)`" } | Out-Null `r`n`r`nWARNING! Do not disable DisableAADWAM or EnableADAL, it will kill the MFA on Azure, all account with WFA will not work anymore`r`n`r`nTo avoid device to auto join in AAD, configure AAD. In AAD/Microsoft-Entra go to Identity > Devices > All devices > Device settings`r`n    - `"Users may join devices to Microsoft Entra ID`": SELECTED (only dedicated user)`r`n    - `"Additional local administrators on Microsoft Entra joined devices`": NONE`r`n    - `"Require multifactor authentication (MFA) to join devices`": YES`r`n`r`nSide effect: Take the computer out of AAD but not from AD`r`nIf disabled: Will allow Teams & co to auto-enroll the device. Will not autojoin to AAD`r`nDoc: https://techpress.net/how-to-unjoin-a-hybrid-azure-ad-join-device/`r`nDoc: To fix the unpredictable freez of Office apps (Outlook/Teams/OneDrive): http://aldrid.ge/W10MU-AAD-Auth" | %{
@@ -1044,6 +1054,9 @@ New-GPO -Name "[1mm0rt41][Audit](GPO,Computer) Audit LDAP SASL" -Comment "######
 	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Diagnostics" -ValueName "16 LDAP Interface Events" -Value 2 -Type DWord >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Directory Service" -ValueName "MaxSize" -Value 33685504 -Type DWord >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Directory Service" -ValueName "MaxSizeUpper" -Value 0 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -ValueName "1775223437" -Value 1 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -ValueName "2654580365" -Value 1 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Parameters" -ValueName "LdapEnforceChannelBinding" -Value 1 -Type DWord >$null
 	$_
 }
 
