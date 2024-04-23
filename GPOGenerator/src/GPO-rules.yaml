@@ -1125,7 +1125,21 @@ NiceToHave:
             HKLM\SYSTEM\CurrentControlSet\Control\FileSystem:
                 LongPathsEnabled: DWord:1
         GPLink: $LDAP_DN
-
+        
+    DNS Suffix:
+        ShortPrefix: GPO,Computer
+        Comment: |
+            The typical name resolution process for Microsoft Windows 2000 uses the primary DNS suffix and any connection-specific DNS suffixes. If these suffixes do not work, the devolution of the primary DNS suffix is attempted by the name resolution process.
+            
+            When a domain suffix search list is configured on a client, only that list is used. The primary DNS suffix and any connection-specific DNS suffixes are not used, nor is the devolution of the primary suffix attempted. The domain suffix search list is an administrative override of all standard Domain Name Resolver (DNR) look-up mechanisms.
+            
+            Side effect: None
+            If disabled: Can block access to some ressource that doesn't known AD Suffix
+        Hive:
+            HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters:
+                SearchList: String:suffix-dns.mycorp.local,suffix2.corp.lo
+            HKLM\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient:
+                SearchList: String:suffix-dns.mycorp.local,suffix2.corp.lo
 
 ###############################################################################
 Azure:
@@ -1206,7 +1220,12 @@ Audit:
                 16 LDAP Interface Events: DWord:2
             HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Directory Service:
                 MaxSize: DWord:33685504
-                MaxSizeUpper: DWord:0
+                MaxSizeUpper: DWord:0                
+            HKLM\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides:
+                1775223437: DWord:1
+                2654580365: DWord:1
+            HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Parameters:
+                LdapEnforceChannelBinding: DWord:1
     Syslog:
         Tasks:
             Syslog:
