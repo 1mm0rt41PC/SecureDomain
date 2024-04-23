@@ -124,7 +124,7 @@ Write-Host "List ScheduledTask"
 @"
 "HostName","TaskName","Next Run Time","Status","Logon Mode","Last Run Time","Last Result","Author","Task To Run","Start In","Comment","Scheduled Task State","Idle Time","Power Management","Run As User","Delete Task If Not Rescheduled","Stop Task If Runs X Hours and X Mins","Schedule","Schedule Type","Start Time","Start Date","End Date","Days","Months","Repeat: Every","Repeat: Until: Time","Repeat: Until: Duration","Repeat: Stop If Still Running"
 $((schtasks.exe /query /V /FO csv)  -join "`r`n")
-"@ | ConvertFrom-CSV | Where { $_.TaskName.Replace('\','').Length -eq $_.TaskName.Length-1 } | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\ScheduledTask_${hostname}.csv"
+"@ | ConvertFrom-CSV | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\ScheduledTask_${hostname}.csv"
 
 
 # List RDP Sessions
@@ -153,18 +153,44 @@ try {
 
 # List Process
 Write-Host "List Process"
-Get-WmiObject Win32_Process | % {
-	$p = $_
-	$row = echo 1 | Select @{n="HostName";e={$env:computername}},Owner,OwnerDomain,@{n="ProcessId";e={$p.ProcessId}},@{n="ParentProcessId";e={$p.ParentProcessId}},@{n="CommandLine";e={$p.CommandLine}},@{n="Description";e={$p.Description}},@{n="ExecutablePath";e={$p.ExecutablePath}},@{n="Name";e={$p.Name}},@{n="SessionId";e={$p.SessionId}},@{n="CreationDate";e={$p.CreationDate}}
-    try {
-	$u = $p.GetOwner()
-        $row.Owner = $u.User
-        $row.OwnerDomain = $u.Domain
-    } catch {
-	Write-Host "err"
-    }	
-	return $row
-} | where { $_.OwnerDomain -ne $env:computername -and $_.OwnerDomain -ne 'NT AUTHORITY' -and $_.OwnerDomain -ne 'Window Manager' -and $_.OwnerDomain -ne 'Font Driver Host' } | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Process_${hostname}.csv"
+try {
+	Get-Process -IncludeUserName | Select @{n="HostName";e={$env:computername}},
+		@{n="OwnerDomain";e={try{$_.UserName.split('\')[0]}catch{$_.UserName}}},
+		@{n="Owner";e={try{$_.UserName.split('\')[1]}catch{$_.UserName}}},
+		@{n="UserSID";e={try{(New-Object Security.Principal.NTAccount($_.UserName)).Translate([Security.Principal.SecurityIdentifier]).Value}catch{'S-0-0-0'}}},
+		IsLocalUser,
+		@{n="ProcessId";e={$_.Id}},
+		@{n="CommandLine";e={$_.Path}},
+		@{n="Description";e={$_.Description}},
+		@{n="Name";e={$_.Name}},
+		@{n="SessionId";e={$_.SessionId}},
+		@{n="CreationDate";e={$_.StartTime}} | Select HostName,OwnerDomain,Owner,UserSID,@{n="IsLocalUser";e={($_.UserSID.Length -le 12) -or ($_.OwnerDomain -eq $_.HostName)}},ProcessId,CommandLine,Description,Name,SessionId,CreationDate | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Process_${hostname}.csv"
+}catch{
+	try{
+	 	Get-WmiObject Win32_Process | %{
+			$row = $_ | Select @{n="HostName";e={$env:computername}},
+				OwnerDomain,
+				Owner,
+				UserSID,
+				IsLocalUser,
+				@{n="ProcessId";e={$_.ProcessId}},
+				@{n="CommandLine";e={$_.CommandLine}},
+				@{n="Description";e={$_.Description}},
+				@{n="Name";e={$_.Name}},
+				@{n="SessionId";e={$_.SessionId}},
+				@{n="CreationDate";e={$_.CreationDate}}
+			try {
+				$u = $_.GetOwner()
+				$row.Owner = $u.User
+				$row.OwnerDomain = $u.Domain
+				$row.UserSID = (New-Object Security.Principal.NTAccount($u.Domain,$u.User)).Translate([Security.Principal.SecurityIdentifier]).Value
+			} catch {}
+			$row
+		} | Select HostName,OwnerDomain,Owner,UserSID,@{n="IsLocalUser";e={($_.UserSID.Length -le 12) -or ($_.OwnerDomain -eq $_.HostName)}},ProcessId,CommandLine,Description,Name,SessionId,CreationDate | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Process_${hostname}.csv"
+  	}catch{
+		echo 1 | select @{n="HostName";e={$env:computername}},@{n="OwnerDomain";e={"Powershell v2 only - Process list not supported via wmi & Get-Process"}},Owner,UserSID,IsLocalUser,ProcessId,CommandLine,Description,Name,SessionId,CreationDate | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Process_${hostname}.csv"
+	}
+}
 
 
 # List local share
@@ -206,20 +232,24 @@ try{
 
 # List local ip
 Write-Host "List local ip"
-Get-WmiObject Win32_NetworkAdapterConfiguration | ?{ $_.IPEnabled -eq $true -and $_.IPAddress -ne $null -and $_.IPAddress.Count -ge 1 -and $_.IPAddress[0] -ne '' } | %{
-	$row = $_
-	for( $i=0; $i -lt $_.IPAddress.Count; $i++ ){
-		$ret = 1 | select @{n="HostName";e={$env:computername}},@{n="InterfaceIndex";e={$row.InterfaceIndex}},@{n="MACAddress";e={$row.MACAddress}},IPAddress,IPSubnet,DefaultIPGateway,@{n="Description";e={$row.Description}},@{n="DHCPEnabled";e={$row.DHCPEnabled}},@{n="DHCPServer";e={$row.DHCPServer}},@{n="DNSDomain";e={$row.DNSDomain}},@{n="DNSServerSearchOrder";e={$row.DNSServerSearchOrder}},@{n="DNSDomainSuffixSearchOrder";e={$row.DNSDomainSuffixSearchOrder -join ","}},@{n="DomainDNSRegistrationEnabled";e={$row.DomainDNSRegistrationEnabled}},@{n="FullDNSRegistrationEnabled";e={$row.FullDNSRegistrationEnabled}},@{n="TcpipNetbiosOptions";e={$row.TcpipNetbiosOptions}},@{n="WINSPrimaryServer";e={$row.WINSPrimaryServer}}
-		$ret.IPAddress = $_.IPAddress[$i]
-		if( -not $ret.IPAddress.StartsWith('fe80::') ){
-			$ret.IPSubnet = $_.IPSubnet[$i]
-			if($_.DefaultIPGateway -ne $null -and $_.DefaultIPGateway.Count -ge 1){
-				$ret.DefaultIPGateway = $_.DefaultIPGateway[0]
+try{
+	Get-WmiObject Win32_NetworkAdapterConfiguration | ?{ $_.IPEnabled -eq $true -and $_.IPAddress -ne $null -and $_.IPAddress.Count -ge 1 -and $_.IPAddress[0] -ne '' } | %{
+		$row = $_
+		for( $i=0; $i -lt $_.IPAddress.Count; $i++ ){
+			$ret = 1 | select @{n="HostName";e={$env:computername}},@{n="InterfaceIndex";e={$row.InterfaceIndex}},@{n="MACAddress";e={$row.MACAddress}},IPAddress,IPSubnet,DefaultIPGateway,@{n="Description";e={$row.Description}},@{n="DHCPEnabled";e={$row.DHCPEnabled}},@{n="DHCPServer";e={$row.DHCPServer}},@{n="DNSDomain";e={$row.DNSDomain}},@{n="DNSServerSearchOrder";e={$row.DNSServerSearchOrder}},@{n="DNSDomainSuffixSearchOrder";e={$row.DNSDomainSuffixSearchOrder -join ","}},@{n="DomainDNSRegistrationEnabled";e={$row.DomainDNSRegistrationEnabled}},@{n="FullDNSRegistrationEnabled";e={$row.FullDNSRegistrationEnabled}},@{n="TcpipNetbiosOptions";e={$row.TcpipNetbiosOptions}},@{n="WINSPrimaryServer";e={$row.WINSPrimaryServer}}
+			$ret.IPAddress = $_.IPAddress[$i]
+			if( -not $ret.IPAddress.StartsWith('fe80::') ){
+				$ret.IPSubnet = $_.IPSubnet[$i]
+				if($_.DefaultIPGateway -ne $null -and $_.DefaultIPGateway.Count -ge 1){
+					$ret.DefaultIPGateway = $_.DefaultIPGateway[0]
+				}
+				$ret
 			}
-			$ret
 		}
-	}
-} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\IpConfig_${hostname}.csv"
+	} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\IpConfig_${hostname}.csv"
+}catch{
+	echo 1 | select @{n="HostName";e={$env:computername}},@{n="InterfaceIndex";e={"Powershell v2 only - Win32_NetworkAdapterConfiguration via wmi unsupported"}},MACAddress,IPAddress,IPSubnet,DefaultIPGateway,Description,DHCPEnabled,DHCPServer,DNSDomain,DNSServerSearchOrder,DNSDomainSuffixSearchOrder,DomainDNSRegistrationEnabled,FullDNSRegistrationEnabled,TcpipNetbiosOptions,WINSPrimaryServer | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\IpConfig_${hostname}.csv"
+}
 
 
 # List local Services
