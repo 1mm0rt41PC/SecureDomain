@@ -97,22 +97,26 @@ try {
 
 # List local group members
 Write-Host "List local group members"
-Get-WmiObject win32_group -filter "Domain='$hostname'" | %{
-	$row = '' | select HostName,Name,SID,Caption,LocalAccount,Member
-	$row.HostName = $env:COMPUTERNAME
- 	$row.Name = $_.Name
-  	$row.SID = $_.SID
-	$row.Caption = $_.Caption.Split('\')[1]
- 	$row.LocalAccount = $_.LocalAccount
- 	$row.Member = ''
-	$_.GetRelated("Win32_Account", "Win32_GroupUser", "", "", "PartComponent", "GroupComponent", $false, $null) | %{
-		$tmp = $_.ToString().Split("=");
-		$dom = $tmp[1].Split('"')[1];
-		$name = $tmp[2].Split('"')[1];
-		$row.Member = $dom+"\"+$name
-		$row
-	}
-} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalGroup_${hostname}.csv"
+try{
+	Get-WmiObject win32_group -filter "Domain='$hostname'" | %{
+		$row = '' | select HostName,Name,SID,Caption,LocalAccount,Member
+		$row.HostName = $env:COMPUTERNAME
+	 	$row.Name = $_.Name
+	  	$row.SID = $_.SID
+		$row.Caption = $_.Caption.Split('\')[1]
+	 	$row.LocalAccount = $_.LocalAccount
+	 	$row.Member = ''
+		$_.GetRelated("Win32_Account", "Win32_GroupUser", "", "", "PartComponent", "GroupComponent", $false, $null) | %{
+			$tmp = $_.ToString().Split("=");
+			$dom = $tmp[1].Split('"')[1];
+			$name = $tmp[2].Split('"')[1];
+			$row.Member = $dom+"\"+$name
+			$row
+		}
+	} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalGroup_${hostname}.csv"
+}catch{
+	echo 1 | select @{n="HostName";e={$env:computername}},@{n="Name";e={"Powershell v2 only - Get-User not supported"}},SID,Caption,LocalAccount,Member | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalUser_${hostname}.csv"
+}
 
 
 # List ScheduledTask
@@ -153,11 +157,11 @@ Get-WmiObject Win32_Process | % {
 	$p = $_
 	$row = echo 1 | Select @{n="HostName";e={$env:computername}},Owner,OwnerDomain,@{n="ProcessId";e={$p.ProcessId}},@{n="ParentProcessId";e={$p.ParentProcessId}},@{n="CommandLine";e={$p.CommandLine}},@{n="Description";e={$p.Description}},@{n="ExecutablePath";e={$p.ExecutablePath}},@{n="Name";e={$p.Name}},@{n="SessionId";e={$p.SessionId}},@{n="CreationDate";e={$p.CreationDate}}
     try {
-		$u = $p.GetOwner()
+	$u = $p.GetOwner()
         $row.Owner = $u.User
         $row.OwnerDomain = $u.Domain
     } catch {
-		Write-Host "err"
+	Write-Host "err"
     }	
 	return $row
 } | where { $_.OwnerDomain -ne $env:computername -and $_.OwnerDomain -ne 'NT AUTHORITY' -and $_.OwnerDomain -ne 'Window Manager' -and $_.OwnerDomain -ne 'Font Driver Host' } | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Process_${hostname}.csv"
