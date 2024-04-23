@@ -78,7 +78,7 @@ $log = "$($env:TMP)\$([guid]::NewGuid().ToString())"
 Start-Transcript -Path $log -Force 
 
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
-if( -not $scriptPath.StartsWith("\\") ){
+if( -not $scriptPath.Contains("\\") ){
 	$syslogStorage = '.\output_sample\per_computer'
 	mkdir -Force $syslogStorage > $null
 	Write-Host -ForegroundColor White -BackgroundColor DarkRed "Mode test => Reason: the script $($MyInvocation.MyCommand.Definition) is not on a shared folder"
