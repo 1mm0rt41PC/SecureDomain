@@ -20,14 +20,18 @@ New-GPO -Name "[1mm0rt41][Security](GPO,Computer) LDAP server configuration" | %
 #
 # Enable AUDIT LDAP Sigging (no LDAPS CB) on SERVER side
 #
-New-GPO -Name "[1mm0rt41][Audit](GPO,Computer) Audit LDAP SASL" -Comment "Log missing LDAP SASL => event ID of 2889 in the Directory Service log. Monitoring for LDAP Binding without Channel Binding
- => event ID 3039 in the Directory Service event log" | %{
-  $_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Diagnostics" -ValueName "16 LDAP Interface Events" -Value 2 -Type DWORD >$null
-  # Directory Service log to be 32MB to start with. The default size is 1MB
-  $_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Directory Service" -ValueName "MaxSize" -Value 33685504 -Type DWORD >$null
-  $_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Directory Service" -ValueName "MaxSizeUpper" -Value 0 -Type DWORD >$null
-  $_
+New-GPO -Name "[1mm0rt41][Audit](GPO,Computer) Audit LDAP SASL" -Comment "##################################`r`n`r`nLog missing LDAP SASL.`r`n=> Event ID of 2889 in the Directory Service log.`r`n`r`nMonitoring for LDAP Binding without Channel Binding.`r`n=> Event ID 3039 in the Directory Service event log.`r`n`r`nPump the size of Directory Service log to 32MB. The default size is 1MB`r`n`r`n`$Hours = 24`r`n`$DCs = Get-ADDomainController -filter *`r`n`$InsecureLDAPBinds = @()`r`nForEach (`$DC in `$DCs) {`r`n`$Events = Get-WinEvent -ComputerName `$DC.Hostname -FilterHashtable @{Logname='Directory Service';Id=2889; StartTime=(Get-Date).AddHours('-`$Hours')}`r`nForEach (`$Event in `$Events) {`r`n   `$eventXML = [xml]`$Event.ToXml()`r`n   `$Client = (`$eventXML.event.EventData.Data[0])`r`n   `$IPAddress = `$Client.SubString(0,`$Client.LastIndexOf(':'))`r`n   `$User = `$eventXML.event.EventData.Data[1]`r`n   Switch (`$eventXML.event.EventData.Data[2])`r`n      {`r`n      0 {`$BindType = 'Unsigned'}`r`n      1 {`$BindType = 'Simple'}`r`n      }`r`n   `$Row = '' | select IPAddress,User,BindType`r`n   `$Row.IPAddress = `$IPAddress`r`n   `$Row.User = `$User`r`n   `$Row.BindType = `$BindType`r`n   `$InsecureLDAPBinds += `$Row`r`n   }`r`n}`r`n`$InsecureLDAPBinds | Out-Gridview" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Diagnostics" -ValueName "16 LDAP Interface Events" -Value 2 -Type DWord >$null
+	# Directory Service log to be 32MB to start with. The default size is 1MB
+ 	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Directory Service" -ValueName "MaxSize" -Value 33685504 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Directory Service" -ValueName "MaxSizeUpper" -Value 0 -Type DWord >$null
+	# Enable LDAPS CB when supported => enable log 3039
+ 	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -ValueName "1775223437" -Value 1 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides" -ValueName "2654580365" -Value 1 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Parameters" -ValueName "LdapEnforceChannelBinding" -Value 1 -Type DWord >$null
+	$_
 }
+
 #
 # Parse logs to find info on DC
 #

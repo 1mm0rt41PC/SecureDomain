@@ -5,6 +5,8 @@ $logs = "C:\logs"
 $domComputer='your-domain.lo\Domain computers'
 $domUser='your-domain.lo\Domain users'
 
+mkdir -force $logs
+
 $acl = Get-Acl $logs
 $acl.SetAccessRuleProtection($disableInheritance,$preserveInheritanceACL)
 $acl | Set-Acl $logs
@@ -56,7 +58,7 @@ New-GPO -Name "[1mm0rt41][Audit] Syslog" | %{
 	mkdir "$gpoPath" >$null
 	( @"
 <?xml version="1.0" encoding="utf-8"?>
-<ScheduledTasks clsid="{CC63F200-7309-4ba0-B154-A71CD118DBCC}"><TaskV2 clsid="{D8896631-B747-47a7-84A6-C155337F3BC8}" name="[GPO] Syslog" image="0" changed="$((Get-Date).ToString("yyyy-MM-dd HH:mm:ss"))" uid="{D98A502B-7563-4A3D-A4EA-5B4EE8E63364}" ><Properties action="R" name="[GPO] Syslog" runAs="S-1-5-18" logonType="S4U"><Task version="1.2"><RegistrationInfo><Author>$($env:USERDOMAIN)\$($env:USERNAME)</Author><Description><![CDATA[This task need to run with S-1-5-18 // GPO Id: $gpoId // GPO Name: $gpoName]]></Description></RegistrationInfo><Principals><Principal id="Author"><UserId>S-1-5-18</UserId><LogonType>S4U</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals><Settings><IdleSettings><Duration>PT5M</Duration><WaitTimeout>PT1H</WaitTimeout><StopOnIdleEnd>false</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>false</StopIfGoingOnBatteries><AllowHardTerminate>true</AllowHardTerminate><StartWhenAvailable>true</StartWhenAvailable><AllowStartOnDemand>true</AllowStartOnDemand><Enabled>true</Enabled><Hidden>false</Hidden><ExecutionTimeLimit>PT1H</ExecutionTimeLimit><Priority>7</Priority><RestartOnFailure><Interval>PT10M</Interval><Count>3</Count></RestartOnFailure><RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable></Settings><Actions Context="Author"><Exec><Command>powershell</Command><Arguments>-exec bypass -nop -Command \\dc01.corp.lo\sysvol\dc01.corp.lo\scripts\logger.ps1</Arguments></Exec></Actions><Triggers><CalendarTrigger><StartBoundary>$((Get-Date).AddDays(1).ToString("yyyy-MM-ddT{0:d2}:00:00" -f 9))</StartBoundary><Enabled>true</Enabled><ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay><RandomDelay>PT10M</RandomDelay></CalendarTrigger></Triggers></Task></Properties></TaskV2>
+<ScheduledTasks clsid="{CC63F200-7309-4ba0-B154-A71CD118DBCC}"><TaskV2 clsid="{D8896631-B747-47a7-84A6-C155337F3BC8}" name="[GPO] Syslog" image="0" changed="$((Get-Date).ToString("yyyy-MM-dd HH:mm:ss"))" uid="{D98A502B-7563-4A3D-A4EA-5B4EE8E63364}" ><Properties action="R" name="[GPO] Syslog" runAs="S-1-5-18" logonType="S4U"><Task version="1.2"><RegistrationInfo><Author>$($env:USERDOMAIN)\$($env:USERNAME)</Author><Description><![CDATA[This task need to run with S-1-5-18 // GPO Id: $gpoId // GPO Name: $gpoName]]></Description></RegistrationInfo><Principals><Principal id="Author"><UserId>S-1-5-18</UserId><LogonType>S4U</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals><Settings><IdleSettings><Duration>PT5M</Duration><WaitTimeout>PT1H</WaitTimeout><StopOnIdleEnd>false</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>false</StopIfGoingOnBatteries><AllowHardTerminate>true</AllowHardTerminate><StartWhenAvailable>true</StartWhenAvailable><AllowStartOnDemand>true</AllowStartOnDemand><Enabled>true</Enabled><Hidden>false</Hidden><ExecutionTimeLimit>PT1H</ExecutionTimeLimit><Priority>7</Priority><RestartOnFailure><Interval>PT10M</Interval><Count>3</Count></RestartOnFailure><RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable></Settings><Actions Context="Author"><Exec><Command>powershell</Command><Arguments>-exec bypass -nop -Command \\$($env:USERDNSDOMAIN)\NETLOGON\logger.ps1</Arguments></Exec></Actions><Triggers><CalendarTrigger><StartBoundary>$((Get-Date).AddDays(1).ToString("yyyy-MM-ddT{0:d2}:00:00" -f 9))</StartBoundary><Enabled>true</Enabled><ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay><RandomDelay>PT10M</RandomDelay></CalendarTrigger></Triggers></Task></Properties></TaskV2>
 </ScheduledTasks>
 "@ ).Trim() | Out-File -Encoding ASCII "$gpoPath\ScheduledTasks.xml"
 	Get-AdObject -Filter "(objectClass -eq 'groupPolicyContainer') -and (name -eq '$gpoId')" | Set-ADObject -Replace @{gPCMachineExtensionNames="[{00000000-0000-0000-0000-000000000000}{CAB54552-DEEA-4691-817E-ED4A4D1AFC72}][{AADCED64-746C-4633-A97C-D61349046527}{CAB54552-DEEA-4691-817E-ED4A4D1AFC72}]"};
@@ -72,11 +74,11 @@ $delimiter = ','
 New-EventLog -LogName System -Source Logger2CSV -ErrorAction SilentlyContinue;
 
 $ErrorActionPreference = "Stop"
-$log = (New-TemporaryFile).FullName
+$log = "$($env:TMP)\$([guid]::NewGuid().ToString())"
 Start-Transcript -Path $log -Force 
 
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
-if( -not $scriptPath.StartsWith("\\") ){
+if( -not $scriptPath.Contains("\\") ){
 	$syslogStorage = '.\output_sample\per_computer'
 	mkdir -Force $syslogStorage > $null
 	Write-Host -ForegroundColor White -BackgroundColor DarkRed "Mode test => Reason: the script $($MyInvocation.MyCommand.Definition) is not on a shared folder"
@@ -84,29 +86,37 @@ if( -not $scriptPath.StartsWith("\\") ){
 }
 Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Files storage: $syslogStorage\*_${hostname}.csv"
 
+
 # List local users
 Write-Host "List local users"
-Get-LocalUser | select @{n="HostName";e={$env:computername}},Name,AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalUser_${hostname}.csv"
-
+try {
+	Get-LocalUser | select @{n="HostName";e={$env:computername}},Name,AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalUser_${hostname}.csv"
+}catch{
+	echo 1 | select @{n="HostName";e={$env:computername}},@{n="Name";e={"Powershell v2 only - Get-User not supported"}},AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalUser_${hostname}.csv"
+}
 
 # List local group members
 Write-Host "List local group members"
-Get-WmiObject win32_group -filter "Domain='$hostname'" | %{
-	$row = '' | select HostName,Name,SID,Caption,LocalAccount,Member
-	$row.HostName = $env:COMPUTERNAME
- 	$row.Name = $_.Name
-  	$row.SID = $_.SID
-	$row.Caption = $_.Caption.Split('\')[1]
- 	$row.LocalAccount = $_.LocalAccount
- 	$row.Member = ''
-	$_.GetRelated("Win32_Account", "Win32_GroupUser", "", "", "PartComponent", "GroupComponent", $false, $null) | %{
-		$tmp = $_.ToString().Split("=");
-		$dom = $tmp[1].Split('"')[1];
-		$name = $tmp[2].Split('"')[1];
-		$row.Member = $dom+"\"+$name
-		$row
-	}
-} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalGroup_${hostname}.csv"
+try{
+	Get-WmiObject win32_group -filter "Domain='$hostname'" | %{
+		$row = '' | select HostName,Name,SID,Caption,LocalAccount,Member
+		$row.HostName = $env:COMPUTERNAME
+	 	$row.Name = $_.Name
+	  	$row.SID = $_.SID
+		$row.Caption = $_.Caption.Split('\')[1]
+	 	$row.LocalAccount = $_.LocalAccount
+	 	$row.Member = ''
+		$_.GetRelated("Win32_Account", "Win32_GroupUser", "", "", "PartComponent", "GroupComponent", $false, $null) | %{
+			$tmp = $_.ToString().Split("=");
+			$dom = $tmp[1].Split('"')[1];
+			$name = $tmp[2].Split('"')[1];
+			$row.Member = $dom+"\"+$name
+			$row
+		}
+	} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalGroup_${hostname}.csv"
+}catch{
+	echo 1 | select @{n="HostName";e={$env:computername}},@{n="Name";e={"Powershell v2 only - Get-User not supported"}},SID,Caption,LocalAccount,Member | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalUser_${hostname}.csv"
+}
 
 
 # List ScheduledTask
@@ -129,19 +139,66 @@ qwinsta | foreach {
 
 # List Firewall rules
 Write-Host "List Firewall rules"
-Get-NetFirewallRule -PolicyStore ActiveStore | where {$_.Enabled -eq $true } | sort Direction,Action | Select @{n="HostName";e={$env:computername}},DisplayName,Direction,DisplayGroup,Profile,Action,PolicyStoreSourceType,PolicyStoreSource,
-	@{Name='Protocol';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).Protocol}},
-	@{Name='LocalPort';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).LocalPort}},
-	@{Name='RemotePort';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).RemotePort}},
-	@{Name='RemoteAddress';Expression={($PSItem | Get-NetFirewallAddressFilter -PolicyStore ActiveStore).RemoteAddress}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallRules_${hostname}.csv"
-Get-NetFirewallProfile | select @{n="HostName";e={$env:computername}},* | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallStatus_${hostname}.csv"
+try {
+	Get-NetFirewallRule -PolicyStore ActiveStore | where {$_.Enabled -eq $true } | sort Direction,Action | Select @{n="HostName";e={$env:computername}},DisplayName,Direction,DisplayGroup,Profile,Action,PolicyStoreSourceType,PolicyStoreSource,
+		@{Name='Protocol';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).Protocol}},
+		@{Name='LocalPort';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).LocalPort}},
+		@{Name='RemotePort';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).RemotePort}},
+		@{Name='RemoteAddress';Expression={($PSItem | Get-NetFirewallAddressFilter -PolicyStore ActiveStore).RemoteAddress}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallRules_${hostname}.csv"
+	Get-NetFirewallProfile | select @{n="HostName";e={$env:computername}},* | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallStatus_${hostname}.csv"
+}catch{
+	echo 1 | select @{n="HostName";e={$env:computername}},@{n="DisplayName";e={"Powershell v2 only - FW not supported"}},Direction,DisplayGroup,Profile,Action,PolicyStoreSourceType,PolicyStoreSource,Protocol,LocalPort,RemotePort,RemoteAddress | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallStatus_${hostname}.csv"
+}
+
+
+# List Process
+Write-Host "List Process"
+Get-WmiObject Win32_Process | % {
+	$p = $_
+	$row = echo 1 | Select @{n="HostName";e={$env:computername}},Owner,OwnerDomain,@{n="ProcessId";e={$p.ProcessId}},@{n="ParentProcessId";e={$p.ParentProcessId}},@{n="CommandLine";e={$p.CommandLine}},@{n="Description";e={$p.Description}},@{n="ExecutablePath";e={$p.ExecutablePath}},@{n="Name";e={$p.Name}},@{n="SessionId";e={$p.SessionId}},@{n="CreationDate";e={$p.CreationDate}}
+    try {
+	$u = $p.GetOwner()
+        $row.Owner = $u.User
+        $row.OwnerDomain = $u.Domain
+    } catch {
+	Write-Host "err"
+    }	
+	return $row
+} | where { $_.OwnerDomain -ne $env:computername -and $_.OwnerDomain -ne 'NT AUTHORITY' -and $_.OwnerDomain -ne 'Window Manager' -and $_.OwnerDomain -ne 'Font Driver Host' } | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Process_${hostname}.csv"
 
 
 # List local share
 Write-Host "List local share"
 try{
 	$smb = Get-SmbShare -ErrorAction Stop | select @{n="HostName";e={$env:computername}},*
-	$smb | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\SmbShare_${hostname}.csv"
+	$data = $smb | %{
+		$cRow = $_
+		$row = echo 1 | select @{n="HostName";e={$cRow.HostName}},@{n="Name";e={$cRow.Name}},@{n="Path";e={$cRow.Path}},@{n="Description";e={$cRow.Description}},@{n="CurrentUsers";e={$cRow.CurrentUsers}},@{n="CompressData";e={$cRow.CompressData}},@{n="EncryptData";e={$cRow.EncryptData}},smb_IdentityReference,smb_FileSystemRights,smb_AccessControlType,path_IdentityReference,path_FileSystemRights,path_AccessControlType,path_Owner
+		$_.PresetPathAcl.Access | %{		
+			$row.smb_AccessControlType = $_.AccessControlType
+			$row.smb_FileSystemRights = $_.FileSystemRights
+			$row.smb_IdentityReference = $_.IdentityReference
+			$row
+		}	
+	}
+
+	$data += $smb | %{
+		$cRow = $_
+		$row = echo 1 | select @{n="HostName";e={$cRow.HostName}},@{n="Name";e={$cRow.Name}},@{n="Path";e={$cRow.Path}},@{n="Description";e={$cRow.Description}},@{n="CurrentUsers";e={$cRow.CurrentUsers}},@{n="CompressData";e={$cRow.CompressData}},@{n="EncryptData";e={$cRow.EncryptData}},smb_IdentityReference,smb_FileSystemRights,smb_AccessControlType,path_IdentityReference,path_FileSystemRights,path_AccessControlType,path_Owner
+		try{
+			$acl = Get-Acl $_.Path
+			$row.path_Owner = $acl.Owner
+			$acl | select -ExpandProperty Access | %{		
+				$row.path_AccessControlType = $_.AccessControlType
+				$row.path_FileSystemRights = $_.FileSystemRights
+				$row.path_IdentityReference = $_.IdentityReference
+				$row
+			}
+		}catch{}
+	}
+	
+	$data = $data | Sort Path | ConvertTo-Csv -NoTypeInformation | sort -Unique	
+	$($data | where { $_.Contains('path_Owner') }; $data | where { -not $_.Contains('path_Owner') }) | Out-File -Encoding UTF8 "$syslogStorage\SmbShare_${hostname}.csv"
 }catch{
 	echo 1 | select @{n="HostName";e={$env:computername}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\SmbShare_${hostname}.csv"
 }
@@ -219,7 +276,9 @@ Write-Host "List config"
 	@('HKLM\Software\Microsoft\Windows\CurrentVersion\Internet Settings','AutoDetect',0),
 	@('HKLM\System\currentcontrolset\services\tcpip6\parameters','DisabledComponents',32),
 	@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate','WUServer',''),
-	@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU','UseWUServer',1)
+	@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU','UseWUServer',1),
+ 	@('HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters','SearchList', 'suffix-dns.mycorp.local,suffix2.corp.lo'),
+	@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient', 'SearchList', 'suffix-dns.mycorp.local,suffix2.corp.lo')
 ) | %{
 	$path=$_[0]
 	$key=$_[1]
@@ -239,6 +298,7 @@ Write-Host "List config"
 
 
 # Check SCCM NAA
+Write-Host "List SCCM NAA"
 $ret = echo '' | Select hostname,hasNAA
 $ret.hostname = $hostname
 try {
@@ -256,7 +316,8 @@ $ret | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encodi
 
 
 # SecEdit
-$tmp = (New-TemporaryFile).FullName
+Write-Host "List SecEdit"
+$tmp = "$($env:TMP)\$([guid]::NewGuid().ToString())"
 SecEdit.exe /export /cfg $tmp
 $lastType = ''
 cat $tmp | % {
@@ -264,12 +325,12 @@ cat $tmp | % {
 		$lastType = $_
 	}else{
 		if( $lastType -ne '[Unicode]' -and $lastType -ne '[Version]' ){
-			$tmp = $_.replace(' = ',';').replace('=',';').split(';')
+			$tmprow = $_.replace(' = ',';').replace('=',';').split(';')
 			$row = echo 1 | select hostname,category,key,val
 			$row.hostname = $hostname;
 			$row.category = $lastType;
-			$row.key = $tmp[0].trim('"');
-			$row.val = $tmp[1].trim('"');
+			$row.key = $tmprow[0].trim('"');
+			$row.val = $tmprow[1].trim('"');
 			return $row
 		}
 	}
