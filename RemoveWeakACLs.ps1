@@ -42,7 +42,7 @@ $output | Out-GridView
 ########################################################
 ########################################################
 # IF YOU ARE READ TO APPLY ALL CHANGE, SET IT TO $false
-$testMode=$true
+
 $global:viewIfValid = $true
 $global:checkOwner = $true
 $global:checkInheritanceACL = $true
@@ -54,23 +54,42 @@ $ErrorActionPreference = "Stop"
 $log = "$($env:TMP)\$([guid]::NewGuid().ToString()).txt"
 Start-Transcript -Path $log -Force 
 
+
+Write-Host -NoNewLine -ForegroundColor DarkMagenta "[?] "
 $global:viewIfValid=$(Read-Host "Verbose mode that show valid acl [Y/n] ?") -in @("y","Y","")
+
+Write-Host -NoNewLine -ForegroundColor DarkMagenta "[?] "
 $global:checkOwner=$(Read-Host "Control owner ship [Y/n] ?") -in @("y","Y","")
+
+Write-Host -NoNewLine -ForegroundColor DarkMagenta "[?] "
 $global:checkInheritanceACL=$(Read-Host "Control ACL without inheritance [Y/n] ?") -in @("y","Y","")
 
-if( $global:testMode -eq $false ){
-	$global:testMode = (-not ($(Read-Host 'Confirm prod mode by typing "PROD"') -in @("PROD")))
-	Write-Host "Deployement in test mode = $global:testMode"
-  	if( $global:testMode -eq $false -and -not ($(Read-Host "Confirm prod mode [Y/n] ?") -in @("y","Y","")) ){
-		Exit
-	}
+Write-Host -NoNewLine -ForegroundColor DarkMagenta "[?] "
+$global:testMode = (-not ($(Read-Host 'Confirm prod mode by typing "PROD". Type anything else for test only') -in @("PROD")))
+if( $global:testMode ){
+	Write-Host -NoNewLine -ForegroundColor Green "[+] "
+	Write-Host -NoNewLine "Deployement in "
+ 	Write-Host -NoNewLine -BackgroundColor Green "TEST"
+  	Write-Host -NoNewLine " mode = "
+ 	Write-Host -BackgroundColor Green $global:testMode
+}else{
+	Write-Host -NoNewLine -BackgroundColor DarkRed "/!\ "
+	Write-Host -NoNewLine "Deployement in "
+ 	Write-Host -NoNewLine -BackgroundColor DarkRed "PROD"
+  	Write-Host -NoNewLine " mode = "
+ 	Write-Host -BackgroundColor DarkRed (-not $global:testMode)
 }
-Write-Host "########################################################"
-Write-Host "testMode= $testMode"
-Write-Host "viewIfValid= $global:viewIfValid"
-Write-Host "checkOwner= $global:checkOwner"
-Write-Host "checkInheritanceACL= $global:checkInheritanceACL"
-Write-Host "checkVulnADCSTemplate= $global:checkVulnADCSTemplate"
+if( $global:testMode -eq $false -and -not ($(Read-Host "Confirm prod mode [y/n] ?") -in @("y","Y")) ){
+	Write-Host "Are you realy ready ? Exiting..."
+	Exit
+}
+
+Write-Host -ForegroundColor DarkCyan "########################################################"
+Write-Host -NoNewLine -ForegroundColor Green "[+] "; Write-Host -NoNewLine -ForegroundColor DarkCyan "testMode= "; Write-Host $testMode
+Write-Host -NoNewLine -ForegroundColor Green "[+] "; Write-Host -NoNewLine -ForegroundColor DarkCyan "viewIfValid= "; Write-Host $global:viewIfValid
+Write-Host -NoNewLine -ForegroundColor Green "[+] "; Write-Host -NoNewLine -ForegroundColor DarkCyan "checkOwner= "; Write-Host $global:checkOwner
+Write-Host -NoNewLine -ForegroundColor Green "[+] "; Write-Host -NoNewLine -ForegroundColor DarkCyan "checkInheritanceACL= "; Write-Host $global:checkInheritanceACL
+Write-Host -NoNewLine -ForegroundColor Green "[+] "; Write-Host -NoNewLine -ForegroundColor DarkCyan "checkVulnADCSTemplate= "; Write-Host $global:checkVulnADCSTemplate
 if( -not($(Read-Host "Continue [Y/n] ?") -in @("y","Y","")) ){
 	Exit
 }
@@ -218,14 +237,16 @@ $PKI_CertUsage=@{
 .PARAMETER modePreview
 	Apply change or juste print what will be change ?
 #>
-function setOwnerToDA( $obj, $modePreview=$true, $setOwnerSID=($global:domain_SID+"-512"), $setOwnerName=(SidTo-String '-512'), $allowOwnerComputer=$false )
+function setOwnerToDA( $obj, $modePreview=$true, $setOwnerSID=($global:domain_SID+"-512"), $setOwnerName=(SidTo-String '-512'), $allowOwnerComputer=$false, $isFile=$false )
 {
 	if( $global:checkOwner -ne $true ){
 		return ;
  	}
 	try{
 		$comppath = $obj.DistinguishedName.ToString()
-		$comppath = "Microsoft.ActiveDirectory.Management.dll\ActiveDirectory:://RootDSE/$comppath"
+  		if( $isFile -eq $false ){
+			$comppath = "Microsoft.ActiveDirectory.Management.dll\ActiveDirectory:://RootDSE/$comppath"
+		}
 		$acl = Get-Acl -Path $comppath
 		if( $acl -eq $null ){
 			Write-Host -NoNewLine -BackgroundColor DarkRed "[@] Unable to get ACL for ``"
@@ -266,7 +287,7 @@ function setOwnerToDA( $obj, $modePreview=$true, $setOwnerSID=($global:domain_SI
 			Write-Host -NoNewLine -BackgroundColor DarkRed "(💥PROD mode ! CHANGING ACLs !)"
 			Write-Host "."
 			try{
-				$acl.SetOwner($setOwnerName)
+				$acl.SetOwner((New-Object System.Security.Principal.SecurityIdentifier($setOwnerSID)))
 				Set-Acl -Path $comppath -AclObject $acl
 			}Catch{
 				Write-Host -NoNewLine -BackgroundColor DarkRed "[@] Error when WRITTING owner for ``"
@@ -373,14 +394,16 @@ function isAdGroup( $sUser )
 .PARAMETER funcTester
 	Function to use to check ACLs
 #>
-function removeWeakAcl_fromUsers( $obj, $modePreview=$true, $funcTester='isAdUser' )
+function removeWeakAcl_fromUsers( $obj, $modePreview=$true, $funcTester='isAdUser', $isFile=$false )
 {
 	if( $global:checkInheritanceACL -ne $true ){
 		return;
  	}
 	try{
 		$comppath = $obj.DistinguishedName
-		$comppath = "Microsoft.ActiveDirectory.Management.dll\ActiveDirectory:://RootDSE/$comppath"
+  		if( $isFile -eq $false ){
+			$comppath = "Microsoft.ActiveDirectory.Management.dll\ActiveDirectory:://RootDSE/$comppath"
+   		}
 		$acl = Get-Acl -Path $comppath
 
 		$acls_to_remove = $acl.access | where-object { ($_.IsInherited -eq $false) -and ($_.IdentityReference.ToString().StartsWith($env:USERDOMAIN)) -and ( &$funcTester ($_.IdentityReference.Value.ToString().Split('\')[1])) }
@@ -547,8 +570,21 @@ Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=Microsoft
 	setOwnerToDA $obj $testMode -allowOwnerComputer $true
 }
 
+Write-Host "=== SYSVOL Entries ==="
+Get-ChildItem -ErrorAction Ignore -Recurse C:\Windows\SYSVOL\domain | Select-Object @{Label="ObjectClass";Expression={"Folder SYSVOL"}},@{Label="DistinguishedName";Expression={$_.FullName}}, @{Label="Owner";Expression={(Get-Acl -Path $_.FullName).Owner}},Name | where { -not( $_.Owner -in $Secure_SID) } | %{
+	$obj = [PSCustomObject]@{
+		Name			   = "SYSVOL: "+$_.DistinguishedName.ToString();
+		DistinguishedName          = $_.DistinguishedName.ToString();
+    		nTSecurityDescriptor       = $null;
+	}
+	setOwnerToDA $obj $testMode -allowOwnerComputer $true -isFile $true
+	removeWeakAcl_fromUsers $obj $testMode 'isAdUser' -isFile $true
+	removeWeakAcl_fromUsers $obj $testMode 'isAdComputer' -isFile $true
+}
+
+
 Write-Host "=== ADCS Entries ==="
-Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=Public Key Services,CN=Services,CN=Configuration,"+$global:domain_Base) -Properties * | foreach {
+Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=Public Key Services,CN=Services,CN=Configuration,"+$global:domain_Base) | foreach {
 	$obj = [PSCustomObject]@{
 		Name			   = "PKI: "+$_.DistinguishedName.ToString();
 		DistinguishedName          = $_.DistinguishedName.ToString();
