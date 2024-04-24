@@ -207,7 +207,7 @@ function setOwnerToDA( $obj, $modePreview=$true, $setOwnerSID=($global:domain_SI
  	}
 	try{
 		$comppath = $obj.DistinguishedName.ToString()
-		$comppath = "AD:$comppath"
+		$comppath = "Microsoft.ActiveDirectory.Management.dll\ActiveDirectory:://RootDSE/$comppath"
 		$acl = Get-Acl -Path $comppath
 		if( $acl -eq $null ){
 			Write-Host -NoNewLine -BackgroundColor DarkRed "[@] Unable to get ACL for ``"
@@ -362,7 +362,7 @@ function removeWeakAcl_fromUsers( $obj, $modePreview=$true, $funcTester='isAdUse
  	}
 	try{
 		$comppath = $obj.DistinguishedName
-		$comppath = "AD:$comppath"
+		$comppath = "Microsoft.ActiveDirectory.Management.dll\ActiveDirectory:://RootDSE/$comppath"
 		$acl = Get-Acl -Path $comppath
 
 		$acls_to_remove = $acl.access | where-object { ($_.IsInherited -eq $false) -and ($_.IdentityReference.ToString().StartsWith($env:USERDOMAIN)) -and ( &$funcTester ($_.IdentityReference.Value.ToString().Split('\')[1])) }
@@ -540,7 +540,7 @@ Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=Public Ke
 	removeWeakAcl_fromUsers $obj $testMode 'isAdUser'
 	removeWeakAcl_fromUsers $obj $testMode 'isAdComputer'
 	
-	$comppath = "AD:$($obj.DistinguishedName)"
+	$comppath = "Microsoft.ActiveDirectory.Management.dll\ActiveDirectory:://RootDSE/$($obj.DistinguishedName)"
 	$acl = Get-Acl -Path $comppath
 	$acl.Access | where { -not ($Secure_SID.Contains($_.IdentityReference.ToString())) } | foreach {
 		$ace = $_.ActiveDirectoryRights.ToString()
@@ -593,7 +593,7 @@ if( $global:checkVulnADCSTemplate -eq $true ){
 	$template | where {$_.isEnabled} | Select Name,msPKIEnrollmentFlag,msPKICertificateNameFlag,AutoEnrollment,Enrollee_Supplies_Subject,ManagementApproval,CriticalCertUsage | ft *
 	
 	$template | where {$_.isEnabled -and -not [string]::IsNullOrEmpty($_.CriticalCertUsage) -and $_.Enrollee_Supplies_Subject -and -not $obj.ManagementApproval } | foreach {
-		$comppath = "AD:$($_.DistinguishedName)"
+		$comppath = "Microsoft.ActiveDirectory.Management.dll\ActiveDirectory:://RootDSE/$($_.DistinguishedName)"
 		$acl = Get-Acl -Path $comppath
 		$acl.Access | where { -not ($Secure_SID.Contains($_.IdentityReference.ToString())) } | foreach {
 			$ace = $_.ActiveDirectoryRights.ToString()
