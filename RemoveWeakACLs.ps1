@@ -266,7 +266,7 @@ function setOwnerToDA( $obj, $modePreview=$true, $setOwnerSID=($global:domain_SI
 			Write-Host -NoNewLine -BackgroundColor DarkRed "(💥PROD mode ! CHANGING ACLs !)"
 			Write-Host "."
 			try{
-				$acl.SetOwner($setOwnerSID)
+				$acl.SetOwner($setOwnerName)
 				Set-Acl -Path $comppath -AclObject $acl
 			}Catch{
 				Write-Host -NoNewLine -BackgroundColor DarkRed "[@] Error when WRITTING owner for ``"
