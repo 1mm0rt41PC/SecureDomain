@@ -65,6 +65,8 @@ if( $global:testMode -eq $false ){
 		Exit
 	}
 }
+Write-Host "########################################################"
+Write-Host "testMode= $testMode"
 Write-Host "viewIfValid= $global:viewIfValid"
 Write-Host "checkOwner= $global:checkOwner"
 Write-Host "checkInheritanceACL= $global:checkInheritanceACL"
