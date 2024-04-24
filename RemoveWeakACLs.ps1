@@ -65,6 +65,14 @@ if( $global:testMode -eq $false ){
 		Exit
 	}
 }
+Write-Host "viewIfValid= $global:viewIfValid"
+Write-Host "checkOwner= $global:checkOwner"
+Write-Host "checkInheritanceACL= $global:checkInheritanceACL"
+Write-Host "checkVulnADCSTemplate= $global:checkVulnADCSTemplate"
+if( -not($(Read-Host "Continue [Y/n] ?") -in @("y","Y","")) ){
+	Exit
+}
+
 
 $global:count_ACL = 0;
 $global:count_Owner = 0;
