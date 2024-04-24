@@ -6,6 +6,7 @@ New-GPO -Name "[Log](GPO,Computer) LSA & NTLM Audit Mode" -Comment "############
 	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0" -ValueName "AuditReceivingNTLMTraffic" -Value 2 -Type DWord >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0" -ValueName "RestrictSendingNTLMTraffic" -Value 1 -Type DWord >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\LSASS.exe" -ValueName "AuditLevel" -Value 8 -Type DWord >$null
+ 	$_ | Set-GPRegistryValue -Key "HKLM\System\CurrentControlSet\Control\Lsa" -ValueName "LmCompatibilityLevel" -Value 3 -Type DWord >$null
 	$_
 }
 
