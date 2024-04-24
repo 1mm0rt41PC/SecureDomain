@@ -483,7 +483,7 @@ Get-ADComputer -Filter * -Property nTSecurityDescriptor | foreach {
 	setOwnerToDA $obj $testMode
 }
 Write-Host "=== Organizational Unit ==="
-Get-ADOrganizationalUnit -Filter * -Property nTSecurityDescriptor | foreach {
+Get-ADObject -Filter '*' -Property nTSecurityDescriptor | where { $_.ObjectClass -eq 'organizationalUnit' -or $_.ObjectClass -eq 'container' } | foreach {
 	$obj = [PSCustomObject]@{
 		Name			   = "OU: "+$_.DistinguishedName.ToString();
 		DistinguishedName          = $_.DistinguishedName.ToString();
