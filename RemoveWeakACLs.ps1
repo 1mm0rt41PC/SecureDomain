@@ -58,6 +58,14 @@ $global:viewIfValid=$(Read-Host "Verbose mode that show valid acl [Y/n] ?") -in 
 $global:checkOwner=$(Read-Host "Control owner ship [Y/n] ?") -in @("y","Y","")
 $global:checkInheritanceACL=$(Read-Host "Control ACL without inheritance [Y/n] ?") -in @("y","Y","")
 
+if( $global:testMode -eq $false ){
+	$global:testMode = (-not ($(Read-Host 'Confirm prod mode by typing "PROD"') -in @("PROD")))
+	Write-Host "Deployement in test mode = $global:testMode"
+  	if( $global:testMode -eq $false -and -not ($(Read-Host "Confirm prod mode [Y/n] ?") -in @("y","Y","")) ){
+		Exit
+	}
+}
+
 $global:count_ACL = 0;
 $global:count_Owner = 0;
 $global:domain_Base = (Get-ADDomain).DistinguishedName
