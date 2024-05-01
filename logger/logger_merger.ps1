@@ -56,5 +56,11 @@ if( $work.Count -gt 0 ){
 
 # Log the activity
 Stop-Transcript > $null
-Write-EventLog -LogName System -Source LoggerMerger -EntryType Information -Event 1 -Message $(cat $log | Out-String)
+
+$logData = cat $log | Out-String
+$loop = $logData.Length % 32000
+0..$loop | %{
+	Write-EventLog -LogName System -Source LoggerMerger -EntryType Information -Event 1 -Message $logData.SubString($_*32000, 32000)
+}
+
 rm -force $log
