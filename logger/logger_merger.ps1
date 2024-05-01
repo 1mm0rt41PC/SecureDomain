@@ -22,7 +22,7 @@ Start-Transcript -Path $log -Force
 
 
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
-if( -not $scriptPath.StartsWith("\\") ){
+if( -not $scriptPath.Contains("\\") -and -not $MyInvocation.MyCommand.Definition.Contains("\\") ){
 	$syslogStorage = '.\output_sample\per_computer'
 	mkdir -Force $syslogStorage > $null
 	$syslogStorageFinale = '.\output_sample\merge'
