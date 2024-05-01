@@ -1,5 +1,6 @@
 $syslogStorage = '\\DC-SRV01\syslog$'
-$syslogStorageFinale = 'C:\temp'
+$syslogStorageTemp = 'C:\logs\tmp_log'
+$syslogStorageFinale = 'C:\logs\merge'
 
 <#
 # Install
@@ -27,13 +28,16 @@ if( -not $scriptPath.Contains("\\") -and -not $MyInvocation.MyCommand.Definition
 	mkdir -Force $syslogStorage > $null
 	$syslogStorageFinale = '.\output_sample\merge'
 	mkdir -Force $syslogStorageFinale > $null
+ 	$syslogStorageTemp = '.\output_sample\tmp_log'
+  	mkdir -Force $syslogStorageTemp > $null
 	Write-Host -ForegroundColor White -BackgroundColor DarkRed "Mode test => Reason: the script $($MyInvocation.MyCommand.Definition) is not on a shared folder"
 	Write-EventLog -LogName System -Source LoggerMerger -EntryType Warning -Event 2 -Message "Mode test => Reason: the script $($MyInvocation.MyCommand.Definition) is not on a shared folder"
 }
 Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Files Source        : $syslogStorage"
 Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Files Merging output: $syslogStorageFinale"
 
-$work = Get-Item -Path "$syslogStorage\*.csv"
+Move-Item -Force -Path "$syslogStorage\*.csv" -Destination "$syslogStorageTemp\"
+$work = Get-Item -Path "$syslogStorageTemp\*.csv"
 
 if( $work.Count -gt 0 ){
 	rm -Force "$syslogStorageFinale\*.csv"
@@ -48,8 +52,6 @@ if( $work.Count -gt 0 ){
 			cat $_.FullName | Out-File -Encoding UTF8 -Append "$syslogStorageFinale\${type}.csv"
 		}
 	}
-
-	rm -Force "$syslogStorage\*.csv"
 }else{
 	Write-Host -ForegroundColor White -BackgroundColor DarkRed "No work todo... EXIT"
 }
