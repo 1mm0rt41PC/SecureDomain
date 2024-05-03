@@ -72,7 +72,7 @@ Get-WinEvent -FilterXml $xml  -ErrorAction SilentlyContinue | ForEach-Object {
 		$h.Add($_.'Name',$_.'#text')
 	}
 	[PSCustomObject]$h
-} | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\${hostname}_Events-NTLMv1_${date}.csv"
+} | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\Events-NTLMv1_${hostname}_${date}.csv"
 
 
 Get-WinEvent -FilterHashtable @{Logname='Directory Service';Id=2889; StartTime=(get-date).AddHours("-12")} | %{
@@ -88,7 +88,7 @@ Get-WinEvent -FilterHashtable @{Logname='Directory Service';Id=2889; StartTime=(
 		1 {$Row.BindType = "Simple"}
 	}
 	$Row
-} | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\${hostname}_Events-LDAP-Signing_${date}.csv"
+} | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\Events-LDAP-Signing_${hostname}_${date}.csv"
 
 
 # Log the activity
