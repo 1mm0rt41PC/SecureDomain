@@ -18,7 +18,9 @@ Register-ScheduledTask -TaskName "$TaskName" -Trigger $trigger -User "S-1-5-18" 
 New-EventLog -LogName System -Source LoggerMerger -ErrorAction SilentlyContinue;
 
 $ErrorActionPreference = "Stop"
-$log = (New-TemporaryFile).FullName
+$logFolder = "C:\Windows\logs\logger"
+mkdir -force $logFolder
+$log = "$logFolder\$((get-date).ToString('yyyyMMddHms'))_$([guid]::NewGuid().ToString()).txt"
 Start-Transcript -Path $log -Force
 
 
@@ -60,9 +62,14 @@ if( $work.Count -gt 0 ){
 Stop-Transcript > $null
 
 $logData = cat $log | Out-String
-$loop = $logData.Length % 32000
+$loop = [Math]::Ceiling($logData.Length / 32000)
 0..$loop | %{
-	Write-EventLog -LogName System -Source LoggerMerger -EntryType Information -Event 1 -Message $logData.SubString($_*32000, 32000)
+	$size = if( $_*32000+32000 -gt $logData.Length ){ $logData.Length-($_*32000) }else{ 32000 }
+	if( $size -gt 0 ){
+		Write-Host "Writting Part $_"
+		Write-EventLog -LogName System -Source LoggerMerger -EntryType Information -Event 1 -Message $logData.SubString($_*32000, $size)
+	}
 }
 
-rm -force $log
+$limit = (Get-Date).AddDays(-15)
+Get-ChildItem -Path $logFolder -Force | Where-Object { !$_.PSIsContainer -and $_.CreationTime -lt $limit } | Remove-Item -Force
