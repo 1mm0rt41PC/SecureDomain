@@ -74,8 +74,10 @@ $delimiter = ','
 New-EventLog -LogName System -Source Logger2CSV -ErrorAction SilentlyContinue;
 
 $ErrorActionPreference = "Stop"
-$log = "$($env:TMP)\$([guid]::NewGuid().ToString())"
-Start-Transcript -Path $log -Force 
+$logFolder = "C:\Windows\logs\logger"
+mkdir -force $logFolder
+$log = "$logFolder\$((get-date).ToString('yyyyMMddHms'))_$([guid]::NewGuid().ToString()).txt"
+Start-Transcript -Path $log -Force
 
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
 if( -not $scriptPath.Contains("\\") ){
@@ -371,8 +373,9 @@ rm -force $tmp
 # Log the activity
 Stop-Transcript > $null
 Write-EventLog -LogName System -Source Logger2CSV -EntryType Information -Event 1 -Message $(cat $log | Out-String)
-rm -force $log
 
+$limit = (Get-Date).AddDays(-15)
+Get-ChildItem -Path $logFolder -Force | Where-Object { !$_.PSIsContainer -and $_.CreationTime -lt $limit } | Remove-Item -Force
 
 # Test if ALCs on destination are OK
 try {
