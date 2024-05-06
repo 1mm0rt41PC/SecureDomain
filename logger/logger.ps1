@@ -304,6 +304,8 @@ Write-Host "List config"
 	@('HKLM\SYSTEM\CurrentControlSet\Services\Netbt\Parameters','NodeType',2),
 	@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient','EnableMulticast',0),
 	@('HKLM\SYSTEM\CurrentControlSet\Services\WinHttpAutoProxySvc','Start',4),
+ 	@('HKLM\SYSTEM\CurrentControlSet\Services\Spooler','Start',4),
+  	@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer','Start',4),
 	@('HKLM\Software\Microsoft\Windows\CurrentVersion\Internet Settings\Wpad','WpadOverride',0),
 	@('HKLM\Software\Microsoft\Windows\CurrentVersion\Internet Settings','AutoDetect',0),
 	@('HKLM\System\currentcontrolset\services\tcpip6\parameters','DisabledComponents',32),
