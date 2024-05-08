@@ -446,6 +446,28 @@ cat $tmp | % {
 rm -force $tmp
 
 
+# Get LSA erreur from the last 24h
+Write-Host "Get LSA erreur from the last 24h"
+# Require !
+# reg.exe add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\LSASS.exe" /v "AuditLevel" /d 8 /t REG_DWORD /F
+$FilterXml = @'
+<QueryList>
+	<Query Id="0" Path="Microsoft-Windows-CodeIntegrity/Operational">
+		<Select Path="Microsoft-Windows-CodeIntegrity/Operational">
+			*[System[(EventID=3065 or EventID=3066 or EventID=3033 or EventID=3063) and TimeCreated[timediff(@SystemTime) &lt;= 86400000]]]
+		</Select>
+	</Query>
+</QueryList>
+'@
+Get-WinEvent -FilterXml $FilterXml -ErrorAction SilentlyContinue | ForEach-Object {
+	$ret = $_ | Select MachineName,TimeCreated,Id,UserId,LevelDisplayName,FileNameBuffer,ProcessNameBuffer,Message
+	$xml = [xml]$x[0].toXML()
+	$ret.FileNameBuffer = ($xml.Event.EventData.Data | ?{ $_.Name -eq 'FileNameBuffer' }).'#text'
+	$ret.ProcessNameBuffer = ($xml.Event.EventData.Data | ?{ $_.Name -eq 'ProcessNameBuffer' }).'#text'
+	$ret
+} | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\Events-Microsoft-Windows-CodeIntegrity_${hostname}_${date}.csv"
+
+
 # Log the activity
 Stop-Transcript > $null
 Write-EventLog -LogName System -Source Logger2CSV -EntryType Information -Event 1 -Message $(cat $log | Out-String)
