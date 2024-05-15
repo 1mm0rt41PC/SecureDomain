@@ -63,6 +63,9 @@ Write-Host -NoNewLine -ForegroundColor DarkMagenta "[?] "
 $global:checkVulnADCSTemplate=$(Read-Host "Control ADCS ACL [y/N] ?") -in @("y","Y")
 
 Write-Host -NoNewLine -ForegroundColor DarkMagenta "[?] "
+$global:checkDNSAcl=$(Read-Host "Control DNS ACL [y/N] ?") -in @("y","Y")
+
+Write-Host -NoNewLine -ForegroundColor DarkMagenta "[?] "
 $global:testMode = (-not ($(Read-Host 'Confirm prod mode by typing "PROD". Type anything else for test only') -in @("PROD")))
 if( $global:testMode ){
 	Write-Host -NoNewLine -ForegroundColor Green "[+] "
@@ -569,21 +572,23 @@ Get-GPO -all | foreach {
 }
 
 Write-Host "=== DNS Entries ==="
-Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=MicrosoftDNS,DC=DomainDnsZones,"+$global:domain_Base) | foreach {
-	$obj = [PSCustomObject]@{
-		Name			   = "DomainDnsZones: "+$_.DistinguishedName.ToString();
-		DistinguishedName          = $_.DistinguishedName.ToString();
-    		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
+if( $global:checkDNSAcl -eq $true ){
+	Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=MicrosoftDNS,DC=DomainDnsZones,"+$global:domain_Base) | foreach {
+		$obj = [PSCustomObject]@{
+			Name			   = "DomainDnsZones: "+$_.DistinguishedName.ToString();
+			DistinguishedName          = $_.DistinguishedName.ToString();
+	    		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
+		}
+		setOwnerToDA $obj $testMode -allowOwnerComputer $true
 	}
-	setOwnerToDA $obj $testMode -allowOwnerComputer $true
-}
-Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=MicrosoftDNS,DC=ForestDnsZones,"+$global:domain_Base) | foreach {
-	$obj = [PSCustomObject]@{
-		Name			   = "ForestDnsZones: "+$_.DistinguishedName.ToString();
-		DistinguishedName          = $_.DistinguishedName.ToString();
-    		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
+	Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=MicrosoftDNS,DC=ForestDnsZones,"+$global:domain_Base) | foreach {
+		$obj = [PSCustomObject]@{
+			Name			   = "ForestDnsZones: "+$_.DistinguishedName.ToString();
+			DistinguishedName          = $_.DistinguishedName.ToString();
+	    		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
+		}
+		setOwnerToDA $obj $testMode -allowOwnerComputer $true
 	}
-	setOwnerToDA $obj $testMode -allowOwnerComputer $true
 }
 
 Write-Host "=== SYSVOL Entries ==="
