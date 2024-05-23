@@ -428,7 +428,7 @@ Write-Host "List SecEdit"
 $tmp = "$($env:TMP)\$([guid]::NewGuid().ToString())"
 SecEdit.exe /export /cfg $tmp
 $lastType = ''
-cat $tmp | % {
+$secedit = cat $tmp | % {
 	if( $_.startswith('[') ){
 		$lastType = $_
 	}else{
@@ -442,7 +442,60 @@ cat $tmp | % {
 			return $row
 		}
 	}
-} | ConvertTo-Csv -NoTypeInformation -Delimiter $delimiter | Out-File -Encoding UTF8 "$syslogStorage\SecEdit_${hostname}.csv"
+}
+#
+$localSid=''
+try {
+	$localSid = (New-Object System.Security.Principal.NTAccount("DefaultAccount")).Translate([System.Security.Principal.SecurityIdentifier]).Value
+}catch{
+	try{
+		$localSid = (New-Object System.Security.Principal.NTAccount("Administrateur")).Translate([System.Security.Principal.SecurityIdentifier]).Value
+	}catch{
+		try{
+			$localSid = (New-Object System.Security.Principal.NTAccount("Administrator")).Translate([System.Security.Principal.SecurityIdentifier]).Value
+		}catch{
+			try{
+				$localSid = (New-Object System.Security.Principal.NTAccount("Guest")).Translate([System.Security.Principal.SecurityIdentifier]).Value
+			}catch{
+				Write-Host "Not Found"
+			}
+		}
+	}
+}
+$localSid = $localSid.split('-')
+$localSid = $localSid[0]+'-'+$localSid[1]+'-'+$localSid[2]+'-'+$localSid[3]+'-'+$localSid[4]+'-'+$localSid[5]+'-'+$localSid[6]
+#
+$PrivilegeRights=@()
+$secedit | ?{ $_.category -eq '[Privilege Rights]' } | %{
+	$priv = $_
+	$_.val.split(',') | % {
+		$row = $priv | select hostname,category,key,val;
+		$row.val = $_
+		if( $_[0] -eq '*' ){
+			try {
+				$tmpval = (New-Object System.Security.Principal.SecurityIdentifier($_.Replace('*',''))).Translate([System.Security.Principal.NTAccount]).Value
+				if( $tmpval -ne $null -and $tmpval -ne '' ){
+					$row.val = $tmpval + ' (' + $row.val.Replace('*','') + ')'
+				}
+			}catch{}
+		}else{
+			try{
+				$tmpval = (New-Object System.Security.Principal.NTAccount($_)).Translate([System.Security.Principal.SecurityIdentifier]).Value
+				if( $tmpval -ne $null -and $tmpval -ne '' ){
+					if( $row.val.startswith($localSid) ){
+						$row.val = $row.val + ' (' + $tmpval + ')'
+					}else{
+						$row.val = '.\'+$row.val + ' (' + $tmpval + ')'
+					}
+				}
+			}catch{}
+		}
+		$PrivilegeRights += @($row)
+	}
+}
+$secedit = $secedit | ?{ $_.category -ne '[Privilege Rights]' }
+$secedit = $secedit + $PrivilegeRights
+$secedit | ConvertTo-Csv -NoTypeInformation -Delimiter $delimiter | Out-File -Encoding UTF8 "$syslogStorage\SecEdit_${hostname}.csv"
 rm -force $tmp
 
 
