@@ -92,15 +92,18 @@ Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Files storage: $sys
 # List local users
 Write-Host "List local users"
 try {
-	Get-LocalUser | select @{n="HostName";e={$env:computername}},Name,AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalUser_${hostname}.csv"
+	$o = Get-LocalUser -ErrorAction Stop | select @{n="HostName";e={$env:computername}},Name,AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon
+ 	$o | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalUser_${hostname}.csv"
 }catch{
-	echo 1 | select @{n="HostName";e={$env:computername}},@{n="Name";e={"Powershell v2 only - Get-User not supported"}},AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalUser_${hostname}.csv"
+	$err = $_.Message
+	echo 1 | select @{n="HostName";e={$env:computername}},@{n="Name";e={"Powershell v2 only - Get-LocalUser not supported | Err: $err"}},AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalUser_${hostname}.csv"
 }
 
 # List local group members
 Write-Host "List local group members"
 try{
-	Get-WmiObject win32_group -filter "Domain='$hostname'" | %{
+	$o = Get-WmiObject win32_group -filter "Domain='$hostname'" -ErrorAction Stop
+ 	$o | %{
 		$row = '' | select HostName,Name,SID,Caption,LocalAccount,Member
 		$row.HostName = $env:COMPUTERNAME
 	 	$row.Name = $_.Name
@@ -117,46 +120,67 @@ try{
 		}
 	} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalGroup_${hostname}.csv"
 }catch{
-	echo 1 | select @{n="HostName";e={$env:computername}},@{n="Name";e={"Powershell v2 only - Get-User not supported"}},SID,Caption,LocalAccount,Member | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalUser_${hostname}.csv"
+	$err = $_.Message
+	echo 1 | select @{n="HostName";e={$env:computername}},@{n="Name";e={"Powershell v2 only - Get-WmiObject win32_group not supported | Err:$err"}},SID,Caption,LocalAccount,Member | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\LocalUser_${hostname}.csv"
 }
 
 
 # List ScheduledTask
 Write-Host "List ScheduledTask"
-@"
+try{
+	$o = @"
 "HostName","TaskName","Next Run Time","Status","Logon Mode","Last Run Time","Last Result","Author","Task To Run","Start In","Comment","Scheduled Task State","Idle Time","Power Management","Run As User","Delete Task If Not Rescheduled","Stop Task If Runs X Hours and X Mins","Schedule","Schedule Type","Start Time","Start Date","End Date","Days","Months","Repeat: Every","Repeat: Until: Time","Repeat: Until: Duration","Repeat: Stop If Still Running"
 $((schtasks.exe /query /V /FO csv)  -join "`r`n")
-"@ | ConvertFrom-CSV | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\ScheduledTask_${hostname}.csv"
+"@ | ConvertFrom-CSV
+	$o | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\ScheduledTask_${hostname}.csv"
+}catch{
+	$err = $_.Message
+	$o = echo 1 | select @{n="HostName";e={$env:computername}},@{n="TaskName";e={"Powershell v2 only - schtasks not supported | Err:$err"}}
+	$o | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\ScheduledTask_${hostname}.csv"
+}
 
 
 # List RDP Sessions
 Write-Host "List RDP Sessions"
-qwinsta | foreach {   
-	if ($_ -NotMatch "services|console" -and $_ -match "Disc|Active|Acti|Déco") {
-		$session = $($_ -Replace ' {2,}', ',').split(',')
-		echo 1 | select  @{n="HostName";e={$env:computername}}, @{n="User";e={$session[1]}}, @{n="SessionID";e={$session[2]}}, @{n="Status";e={$session[3]}}
-	}
-} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\RDPSession_${hostname}.csv"
+try{
+	qwinsta | foreach {   
+		if ($_ -NotMatch "services|console" -and $_ -match "Disc|Active|Acti|Déco") {
+			$session = $($_ -Replace ' {2,}', ',').split(',')
+			echo 1 | select  @{n="HostName";e={$env:computername}}, @{n="User";e={$session[1]}}, @{n="SessionID";e={$session[2]}}, @{n="Status";e={$session[3]}}
+		}
+	} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\RDPSession_${hostname}.csv"
+}catch{
+	$err = $_.Message
+	echo 1 | select @{n="HostName";e={$env:computername}},@{n="User";e={"Powershell v2 only - qwinsta not supported | Err:$err"}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\RDPSession_${hostname}.csv"
+}
 
 
 # List Firewall rules
 Write-Host "List Firewall rules"
 try {
-	Get-NetFirewallRule -PolicyStore ActiveStore | where {$_.Enabled -eq $true } | sort Direction,Action | Select @{n="HostName";e={$env:computername}},DisplayName,Direction,DisplayGroup,Profile,Action,PolicyStoreSourceType,PolicyStoreSource,
+	$o = Get-NetFirewallRule -ErrorAction Stop -PolicyStore ActiveStore | where {$_.Enabled -eq $true } | sort Direction,Action | Select @{n="HostName";e={$env:computername}},DisplayName,Direction,DisplayGroup,Profile,Action,PolicyStoreSourceType,PolicyStoreSource,
 		@{Name='Protocol';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).Protocol}},
 		@{Name='LocalPort';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).LocalPort}},
 		@{Name='RemotePort';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).RemotePort}},
-		@{Name='RemoteAddress';Expression={($PSItem | Get-NetFirewallAddressFilter -PolicyStore ActiveStore).RemoteAddress}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallRules_${hostname}.csv"
-	Get-NetFirewallProfile | select @{n="HostName";e={$env:computername}},* | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallStatus_${hostname}.csv"
+		@{Name='RemoteAddress';Expression={($PSItem | Get-NetFirewallAddressFilter -PolicyStore ActiveStore).RemoteAddress}}
+	$o | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallRules_${hostname}.csv"
 }catch{
-	echo 1 | select @{n="HostName";e={$env:computername}},@{n="DisplayName";e={"Powershell v2 only - FW not supported"}},Direction,DisplayGroup,Profile,Action,PolicyStoreSourceType,PolicyStoreSource,Protocol,LocalPort,RemotePort,RemoteAddress | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallStatus_${hostname}.csv"
+	$err = $_.Message
+	echo 1 | select @{n="HostName";e={$env:computername}},@{n="DisplayName";e={"Powershell v2 only - Get-NetFirewallRule not supported | Err:$err"}},Direction,DisplayGroup,Profile,Action,PolicyStoreSourceType,PolicyStoreSource,Protocol,LocalPort,RemotePort,RemoteAddress | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallStatus_${hostname}.csv"
+}
+try{
+	$o = Get-NetFirewallProfile -ErrorAction Stop | select @{n="HostName";e={$env:computername}},*
+ 	$o | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallStatus_${hostname}.csv"
+}catch{
+	$err = $_.Message
+	echo 1 | select @{n="HostName";e={$env:computername}},@{n="DisplayName";e={"Powershell v2 only - Get-NetFirewallProfile not supported | Err:$err"}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\FireWallStatus_${hostname}.csv"
 }
 
 
 # List Process
 Write-Host "List Process"
 try {
-	Get-Process -IncludeUserName | Select @{n="HostName";e={$env:computername}},
+	$o = Get-Process -IncludeUserName -ErrorAction Stop | Select @{n="HostName";e={$env:computername}},
 		@{n="OwnerDomain";e={try{$_.UserName.split('\')[0]}catch{$_.UserName}}},
 		@{n="Owner";e={try{$_.UserName.split('\')[1]}catch{$_.UserName}}},
 		@{n="UserSID";e={try{(New-Object Security.Principal.NTAccount($_.UserName)).Translate([Security.Principal.SecurityIdentifier]).Value}catch{'S-0-0-0'}}},
@@ -166,10 +190,11 @@ try {
 		@{n="Description";e={$_.Description}},
 		@{n="Name";e={$_.Name}},
 		@{n="SessionId";e={$_.SessionId}},
-		@{n="CreationDate";e={$_.StartTime}} | Select HostName,OwnerDomain,Owner,UserSID,@{n="IsLocalUser";e={($_.UserSID.Length -le 12) -or ($_.OwnerDomain -eq $_.HostName)}},ProcessId,CommandLine,Description,Name,SessionId,CreationDate | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Process_${hostname}.csv"
+		@{n="CreationDate";e={$_.StartTime}} | Select HostName,OwnerDomain,Owner,UserSID,@{n="IsLocalUser";e={($_.UserSID.Length -le 12) -or ($_.OwnerDomain -eq $_.HostName)}},ProcessId,CommandLine,Description,Name,SessionId,CreationDate
+	$o | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Process_${hostname}.csv"
 }catch{
 	try{
-	 	Get-WmiObject Win32_Process | %{
+	 	$o = Get-WmiObject Win32_Process | %{
 			$row = $_ | Select @{n="HostName";e={$env:computername}},
 				OwnerDomain,
 				Owner,
@@ -188,7 +213,8 @@ try {
 				$row.UserSID = (New-Object Security.Principal.NTAccount($u.Domain,$u.User)).Translate([Security.Principal.SecurityIdentifier]).Value
 			} catch {}
 			$row
-		} | Select HostName,OwnerDomain,Owner,UserSID,@{n="IsLocalUser";e={($_.UserSID.Length -le 12) -or ($_.OwnerDomain -eq $_.HostName)}},ProcessId,CommandLine,Description,Name,SessionId,CreationDate | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Process_${hostname}.csv"
+		} | Select HostName,OwnerDomain,Owner,UserSID,@{n="IsLocalUser";e={($_.UserSID.Length -le 12) -or ($_.OwnerDomain -eq $_.HostName)}},ProcessId,CommandLine,Description,Name,SessionId,CreationDate
+  		$o | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Process_${hostname}.csv"
   	}catch{
 		echo 1 | select @{n="HostName";e={$env:computername}},@{n="OwnerDomain";e={"Powershell v2 only - Process list not supported via wmi & Get-Process"}},Owner,UserSID,IsLocalUser,ProcessId,CommandLine,Description,Name,SessionId,CreationDate | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Process_${hostname}.csv"
 	}
@@ -235,7 +261,7 @@ try{
 # List local ip
 Write-Host "List local ip"
 try{
-	Get-WmiObject Win32_NetworkAdapterConfiguration | ?{ $_.IPEnabled -eq $true -and $_.IPAddress -ne $null -and $_.IPAddress.Count -ge 1 -and $_.IPAddress[0] -ne '' } | %{
+	Get-WmiObject Win32_NetworkAdapterConfiguration -ErrorAction Stop | ?{ $_.IPEnabled -eq $true -and $_.IPAddress -ne $null -and $_.IPAddress.Count -ge 1 -and $_.IPAddress[0] -ne '' } | %{
 		$row = $_
 		for( $i=0; $i -lt $_.IPAddress.Count; $i++ ){
 			$ret = 1 | select @{n="HostName";e={$env:computername}},@{n="InterfaceIndex";e={$row.InterfaceIndex}},@{n="MACAddress";e={$row.MACAddress}},IPAddress,IPSubnet,DefaultIPGateway,@{n="Description";e={$row.Description}},@{n="DHCPEnabled";e={$row.DHCPEnabled}},@{n="DHCPServer";e={$row.DHCPServer}},@{n="DNSDomain";e={$row.DNSDomain}},@{n="DNSServerSearchOrder";e={$row.DNSServerSearchOrder}},@{n="DNSDomainSuffixSearchOrder";e={$row.DNSDomainSuffixSearchOrder -join ","}},@{n="DomainDNSRegistrationEnabled";e={$row.DomainDNSRegistrationEnabled}},@{n="FullDNSRegistrationEnabled";e={$row.FullDNSRegistrationEnabled}},@{n="TcpipNetbiosOptions";e={$row.TcpipNetbiosOptions}},@{n="WINSPrimaryServer";e={$row.WINSPrimaryServer}}
