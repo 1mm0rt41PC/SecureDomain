@@ -256,10 +256,15 @@ try{
 
 # List local Services
 Write-Host "List local Services"
-Get-WmiObject Win32_Service | %{
-	$row = $_
-	echo 1 | select @{n="HostName";e={$env:computername}},@{n="DisplayName";e={$row.DisplayName}},@{n="Name";e={$row.Name}},@{n="State";e={$row.State}},@{n="UserName";e={$row.StartName}},@{n="InstallDate";e={$row.InstallDate}},@{n="Started";e={$row.Started}},@{n="Status";e={$row.Status}},@{n="ProcessId";e={$row.ProcessId}},@{n="PathName";e={$row.PathName}}
-} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Services_${hostname}.csv"
+try {
+	$obj = Get-WmiObject -ErrorAction Stop Win32_Service | %{
+		$row = $_
+		echo 1 | select @{n="HostName";e={$env:computername}},@{n="DisplayName";e={$row.DisplayName}},@{n="Name";e={$row.Name}},@{n="State";e={$row.State}},@{n="UserName";e={$row.StartName}},@{n="InstallDate";e={$row.InstallDate}},@{n="Started";e={$row.Started}},@{n="Status";e={$row.Status}},@{n="ProcessId";e={$row.ProcessId}},@{n="PathName";e={$row.PathName}}
+	}
+ 	$obj | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\Services_${hostname}.csv"
+}catch {
+	echo 1 | select @{n="HostName";e={$env:computername}},@{n="DisplayName";e={"Powershell v2 only - Process list not supported via wmi & Get-Process"}},Name,State,UserName,InstallDate,Started,Status,ProcessId,PathName
+}
 
 
 ## List Windows Update
@@ -512,14 +517,18 @@ $FilterXml = @'
 	</Query>
 </QueryList>
 '@
-Get-WinEvent -FilterXml $FilterXml -ErrorAction SilentlyContinue | ForEach-Object {
-	$ret = $_ | Select MachineName,TimeCreated,Id,UserId,LevelDisplayName,FileNameBuffer,ProcessNameBuffer,Message
-	$xml = [xml]$x[0].toXML()
-	$ret.FileNameBuffer = ($xml.Event.EventData.Data | ?{ $_.Name -eq 'FileNameBuffer' }).'#text'
-	$ret.ProcessNameBuffer = ($xml.Event.EventData.Data | ?{ $_.Name -eq 'ProcessNameBuffer' }).'#text'
-	$ret
-} | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\Events-Microsoft-Windows-CodeIntegrity_${hostname}_${date}.csv"
-
+try{
+	$evt = Get-WinEvent -FilterXml $FilterXml -ErrorAction Stop | ForEach-Object {
+		$ret = $_ | Select MachineName,TimeCreated,Id,UserId,LevelDisplayName,FileNameBuffer,ProcessNameBuffer,Message
+		$xml = [xml]$x[0].toXML()
+		$ret.FileNameBuffer = ($xml.Event.EventData.Data | ?{ $_.Name -eq 'FileNameBuffer' }).'#text'
+		$ret.ProcessNameBuffer = ($xml.Event.EventData.Data | ?{ $_.Name -eq 'ProcessNameBuffer' }).'#text'
+		$ret
+	}
+ 	$evt | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\Events-Microsoft-Windows-CodeIntegrity_${hostname}_${date}.csv"
+}catch{
+	echo 1 | select @{n="MachineName";e={$env:computername}},@{n="TimeCreated";e={"Powershell v2 only - Process list not supported via wmi & Get-Process"}},Id,UserId,LevelDisplayName,FileNameBuffer,ProcessNameBuffer,Message | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\Events-Microsoft-Windows-CodeIntegrity_${hostname}_${date}.csv"
+}
 
 # Log the activity
 Stop-Transcript > $null
