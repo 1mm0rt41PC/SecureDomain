@@ -67,6 +67,7 @@ New-GPO -Name "[1mm0rt41][Audit] Syslog" | %{
 #>
 
 $syslogStorage = '\\DC-SRV01\syslog$'
+$syslogStorage = 'c:\temp'
 $hostname = $env:COMPUTERNAME
 $delimiter = ','
 
