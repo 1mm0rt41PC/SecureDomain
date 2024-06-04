@@ -629,9 +629,9 @@ runTest @param
 
 
 ###############################################################################
-# List LSA erreur from the last 24h
+# List LSA error from the last 24h
 $param = @{
-	Name="List LSA erreur from the last 24h";
+	Name="List LSA error from the last 24h";
 	Output="Events-Microsoft-Windows-CodeIntegrity_$((Get-Date).ToString('yyyyMMddHHmmss'))";
 	ErrorMessage=">Get-WinEvent< not supported";
 	ErrorColumn="TimeCreated";
@@ -664,7 +664,104 @@ runTest @param
 
 
 ###############################################################################
-# List local Services
+# List NTLMv1 auth recived from the last 24h
+$param = @{
+	Name="List NTLMv1 auth recived from the last 24h";
+	Output="Events-NTLMv1_$((Get-Date).ToString('yyyyMMddHHmmss'))";
+	ErrorMessage=">Get-WinEvent< not supported";
+	ErrorColumn="TimeCreated";
+	InlineCode={
+		$FilterXml = @'
+			<QueryList>
+				<Query Id="0" Path="security">
+					<Select Path="security">
+						*[System[(EventID=4624)] and TimeCreated[timediff(@SystemTime) &lt;= 86400000]]
+						and
+						 *[EventData[Data[@Name='LmPackageName']='NTLM V1']]
+					</Select>
+				</Query>
+			</QueryList>
+'@
+		try{
+			return Get-WinEvent -FilterXml $FilterXml -ErrorAction Stop | % {
+				$h = @{}
+				([xml]$_.Toxml()).Event.EventData.Data | ForEach-Object {
+					$h.Add($_.'Name',$_.'#text')
+				}
+				[PSCustomObject]$h
+			}
+		}catch{
+			return echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Message";e={"No Event in last 24h"}}
+		}
+	}
+}
+runTest @param
+
+
+###############################################################################
+# NTLMv1 and NTLMv2 client blocked audit: 
+# Audit outgoing NTLM authentication traffic that would be blocked.
+$param = @{
+	Name="List outgoing NTLM authentication traffic that would be blocked from the last 24h";
+	Output="Events-NTLM-Out_$((Get-Date).ToString('yyyyMMddHHmmss'))";
+	ErrorMessage=">Get-WinEvent< not supported";
+	ErrorColumn="TimeCreated";
+	InlineCode={
+		try{
+			return Get-WinEvent -ErrorAction Stop -FilterHashtable @{ LogName = 'Microsoft-Windows-NTLM/Operational'; Id=8001,8002; StartTime=(get-date).AddHours("-24") } | %{
+				$e = $_
+				switch ($e.Id) {
+					8001 {
+						$Direction = 'Out'
+						$TargetName = $e.Properties[0].Value ;
+						$ProcessID = $e.Properties[3].Value 
+						$ProcessName = $e.Properties[4].Value ;
+						$Identity =  "$($e.Properties[2].Value)\$($e.Properties[1].Value)"
+						break
+					}
+					8002 {
+						$Direction = 'In'
+						$TargetName = $env:COMPUTERNAME
+						$ProcessID = $e.Properties[0].Value 
+						$ProcessName = $e.Properties[1].Value ;
+						$Identity =  "$($e.Properties[4].Value)\$($e.Properties[3].Value)"
+					}
+					default {}
+				}
+				$_ | Select @{n="HostName";e={$env:computername}},TimeCreated,@{n="TargetName";e={$TargetName}},@{n="Direction";e={$Direction}},@{n="ProcessId";e={$ProcessID}},@{n="ProcessName";e={$ProcessName}} ,@{n="Identity";e={$Identity}} 
+			}
+		}catch{
+			return echo 1 | Select @{n="HostName";e={$env:computername}},@{n="TimeCreated";e={"No Event in last 24h"}}
+		}
+	}
+}
+runTest @param
+
+
+###############################################################################
+# List SMBv1 connection in
+$param = @{
+	Name="List SMBv1 connection in from the last 24h";
+	Output="Events-SMBv1-In_$((Get-Date).ToString('yyyyMMddHHmmss'))";
+	ErrorMessage=">Get-WinEvent< not supported";
+	ErrorColumn="TimeCreated";
+	InlineCode={
+		try{
+			# Require
+			# Set-SmbServerConfiguration -AuditSmb1Access $true
+			return Get-WinEvent -ErrorAction Stop -FilterHashtable @{ LogName = 'Microsoft-Windows-SMBServer/Audit'; Id=3000; StartTime=(get-date).AddHours("-24") } | %{
+				$_ | Select @{n="HostName";e={$env:computername}},TimeCreated,Message
+			}
+		}catch{
+			return echo 1 | Select @{n="HostName";e={$env:computername}},@{n="TimeCreated";e={"No Event in last 24h"}}
+		}
+	}
+}
+runTest @param
+
+
+###############################################################################
+# List local Software
 $param = @{
 	Name="List local Software";
 	Output="Softwares";
