@@ -127,6 +127,176 @@ function runTest
 
 
 ###############################################################################
+# List config
+$param = @{
+	Name="List config";
+	Output="Configuration";
+	ErrorMessage=">Reg< not supported";
+	ErrorColumn="DisplayName";
+	InlineCode={
+		$ret = @(
+			@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','RunAsPPL',2),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','DisableRestrictedAdmin',0),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','NoLMHash',1),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','DisableRestrictedAdminOutboundCreds',1),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','LmCompatibilityLevel',5),
+			@('HKLM\System\CurrentControlSet\Control\Lsa','EveryoneIncludesAnonymous',0),
+			@('HKLM\System\CurrentControlSet\Control\Lsa','DisableDomainCreds',1),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest','UseLogonCredential',0),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest','Negotiate',0),
+			@('HKLM\System\CurrentControlSet\Services\Netlogon\Parameters','RequireSignOrSeal',1),
+			@('HKLM\System\CurrentControlSet\Services\Netlogon\Parameters','SealSecureChannel',1),
+			@('HKLM\System\CurrentControlSet\Services\Netlogon\Parameters','SignSecureChannel',1),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System','FilterAdministratorToken',1),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System','LocalAccountTokenFilterPolicy',0),
+			@('HKLM\System\CurrentControlSet\Services\LDAP','LDAPClientIntegrity',2),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','SecurityLayer',2),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','UserAuthentication',1),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','fEncryptRPCTraffic',1),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','KeepAliveInterval',1),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','DeleteTempDirsOnExit',1),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','MinEncryptionLevel',1),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','SMB1',0),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','EnableSecuritySignature',1),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','RequireSecuritySignature',1),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','AutoShareWks',0),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','AutoShareServer',0),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','RestrictNullSessAccess',1),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','EnablePlainTextPassword',0),
+			@('HKLM\System\CurrentControlSet\Services\Rdr\Parameters','EnableSecuritySignature',1),
+			@('HKLM\System\CurrentControlSet\Services\Rdr\Parameters','RequireSecuritySignature',1),
+			@('HKLM\System\CurrentControlSet\Services\LanmanWorkstation','AllowInsecureGuestAuth',0),
+			@('HKLM\System\CurrentControlSet\Services\LanmanWorkstation\Parameters','EnableSecuritySignature',1),
+			@('HKLM\System\CurrentControlSet\Services\LanmanWorkstation\Parameters','RequireSecuritySignature',1),
+			@('HKLM\System\CurrentControlSet\Services\LanmanWorkstation\Parameters','EnablePlainTextPassword',0),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\Netbt\Parameters','NodeType',2),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient','EnableMulticast',0), 	
+			@('HKLM\SYSTEM\CurrentControlSet\Services\WinHttpAutoProxySvc','Start',4),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\WebClient','Start',4),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\XboxGipSvc','Start',4),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\XblAuthManager','Start',4),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\XblGameSave','Start',4),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\XboxNetApiSvc','Start',4),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\Spooler','Start',4),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer','Start',4),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Internet Settings\Wpad','WpadOverride',0),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Internet Settings','AutoDetect',0),
+			@('HKLM\System\currentcontrolset\services\tcpip6\parameters','DisabledComponents',32),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate','WUServer',''),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU','UseWUServer',1),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters','SearchList', 'suffix-dns.mycorp.local,suffix2.corp.lo'),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient', 'SearchList', 'suffix-dns.mycorp.local,suffix2.corp.lo'),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\System', 'DontDisplayNetworkSelectionUI', 1),
+			@('HKLM\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters', 'EnableMDNS', 0),
+			@('HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Installer', 'DisableCoInstallers', 1),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service', 'AllowBasic', 0),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service', 'AllowDigest', 0),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service', 'AllowKerberos', 1),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service', 'CbtHardeningLevel', 'Strict'),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service', 'AllowNegotiate', 0),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client', 'AllowBasic', 0),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client', 'AllowDigest', 0),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client', 'AllowKerberos', 1),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client', 'CbtHardeningLevel', 'Strict'),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client', 'AllowNegotiate', 0),
+			@('HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings', 'SecureProtocols', 10752),
+			@('HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings\WinHttp', 'DefaultSecureProtocols', 10752),
+			@('HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Internet Settings\WinHttp', 'DefaultSecureProtocols', 10752),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.3\Client', 'DisabledByDefault', 0),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.3\Client', 'Enabled', 1),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Client', 'DisabledByDefault', 0),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Client', 'Enabled', 1),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Client', 'DisabledByDefault', 1),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Client', 'Enabled', 0),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Client', 'DisabledByDefault', 1),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Client', 'Enabled', 0),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.3\Server', 'DisabledByDefault', 0),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.3\Server', 'Enabled', 1),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Server', 'DisabledByDefault', 0),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Server', 'Enabled', 1),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Server', 'DisabledByDefault', 1),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Server', 'Enabled', 0),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Server', 'DisabledByDefault', 1),
+			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Server', 'Enabled', 0),
+			@('HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0', 'AuditReceivingNTLMTraffic', 2),
+			@('HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0', 'RestrictSendingNTLMTraffic', 1),
+			@('HKLM\System\CurrentControlSet\Services\Netlogon\Parameters', 'AuditNTLMInDomain', 7),	
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation', 'AllowDefaultCredentials', 0),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation', 'ConcatenateDefaults_AllowDefault', 0),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation', 'AllowDefCredentialsWhenNTLMOnly', 0),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation', 'ConcatenateDefaults_AllowDefNTLMOnly', 0),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation\AllowDefCredentialsWhenNTLMOnly', '1', ''),
+			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation\AllowDefaultCredentials', '1', ''),
+			@('HKLM\Software\Microsoft\PolicyManager\default\WiFi\AllowAutoConnectToWiFiSenseHotspots', 'value', 0),	
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS', 'BackupDirectory', 2),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS', 'PasswordAgeDays', 30),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS', 'PasswordLength', 20),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS', 'PasswordComplexity', 4),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS', 'ADPasswordEncryptionEnabled', 0),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS', 'ADBackupDSRMPassword', 1),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS', 'PostAuthenticationResetDelay', 6),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS', 'PostAuthenticationActions', 3),	
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config', 'BackupDirectory', 2),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config', 'PasswordAgeDays', 30),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config', 'PasswordLength', 20),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config', 'PasswordComplexity', 4),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config', 'ADPasswordEncryptionEnabled', 0),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config', 'ADBackupDSRMPassword', 1),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config', 'PostAuthenticationResetDelay', 6),
+			@('HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config', 'PostAuthenticationActions', 3),
+			@('HKLM\Software\Policies\Microsoft Services\AdmPwd', 'AdmPwdEnabled', 1),
+			@('HKLM\Software\Policies\Microsoft Services\AdmPwd', 'PwdExpirationProtectionEnabled', 1),
+			@('HKLM\Software\Policies\Microsoft Services\AdmPwd', 'PasswordComplexity', 4),
+			@('HKLM\Software\Policies\Microsoft Services\AdmPwd', 'PasswordLength', 20),
+			@('HKLM\Software\Policies\Microsoft Services\AdmPwd', 'PasswordAgeDays', 30),
+			@('HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\GPExtensions\{D76B9641-3288-4f75-942D-087DE603E3EA}', 'ExtensionDebugLevel', 2)
+		) | %{
+			$path=$_[0]
+			$key=$_[1]
+			$expected=$_[2]
+			$row = echo '' | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"$path\$key"}},Value,@{n="Expected";e={$expected}},Compliant
+			try{
+				$row.Value = (Get-ItemPropertyValue -Path "Registry::$path" -Name $key -ErrorAction Stop).ToString()
+			}catch{
+				$row.Value = 'undefined'
+			}
+			$row.Compliant = $row.Value -eq $row.Expected
+			$row
+		}
+		#
+		$data = winmgmt /verifyrepository
+		$row_LASTEXITCODE = $LASTEXITCODE
+		$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"wmi-repository-status"}},@{n="Value";e={$data}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+		$wmiRepoSize = (Get-ChildItem -Path $env:windir\System32\Wbem\Repository | Measure-Object -Property Length -Sum).Sum
+		$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"wmi-repository-size"}},@{n="Value";e={$wmiRepoSize/1024/1024/1024}},@{n="Expected";e={"<1"}},@{n="Compliant";e={$wmiRepoSize -lt 1*1024*1024*1024}})
+		if( $row_LASTEXITCODE -eq 0 -and $wmiRepoSize -lt 1*1024*1024*1024 ){
+			$row = echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"Has SCCM NAA ClearText Password"}},Value,@{n="Expected";e={$false}},Compliant
+			try {
+				$naa = Get-WmiObject -namespace "root\ccm\policy\Machine\ActualConfig" -class "CCM_NetworkAccessAccount" -ErrorAction Stop
+				$row.Value = $naa.NetworkAccessPassword.Length -gt 0			
+			}catch{
+				$row.Value = $false
+			}
+			$row.Compliant = $row.Value -eq $row.Expected
+			$ret += @($row)
+			#
+			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"SyslogRefreshDate"}},@{n="Value";e={(Get-Date).ToString('yyyy-MM-dd HH:mm:ss')}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+			#
+			$tmp = Get-WmiObject Win32_OperatingSystem
+			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"SystemDirectory"}},@{n="Value";e={$tmp.SystemDirectory}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"Organization"}},@{n="Value";e={$tmp.Organization}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"BuildNumber"}},@{n="Value";e={$tmp.BuildNumber}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"RegisteredUser"}},@{n="Value";e={$tmp.RegisteredUser}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"SerialNumber"}},@{n="Value";e={$tmp.SerialNumber}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"Version"}},@{n="Value";e={$tmp.Version}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+		}
+		return $ret
+	}
+}
+runTest @param
+
+
+###############################################################################
 # List local users
 $param = @{
 	Name="List local users";
@@ -381,169 +551,6 @@ runTest @param
 # $updateSearcher = (new-object -com "Microsoft.Update.Session").CreateupdateSearcher()
 # $searchResult = $updateSearcher.Search("IsInstalled=0 and Type='Software'")
 # echo 1 | select @{n="HostName";e={$env:computername}},@{n="OSVersion";e={[System.Environment]::OSVersion.Version.ToString()}},@{n="ReleaseId";e={(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").ReleaseId}},@{n="DisplayVersion";e={(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").DisplayVersion}},@{n="EditionID";e={(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").EditionID}},@{n="Nb Missing Windows Update";e={$searchResult.Updates.Count}},@{n="Missing Windows Update";e={($searchResult.Updates|select Title).Title}} | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation > "$syslogStorage\General_${hostname}.csv"
-
-
-###############################################################################
-# List config
-$param = @{
-	Name="List config";
-	Output="Configuration";
-	ErrorMessage=">Reg< not supported";
-	ErrorColumn="DisplayName";
-	InlineCode={
-		$ret = @(
-			@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','RunAsPPL',2),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','DisableRestrictedAdmin',0),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','NoLMHash',1),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','DisableRestrictedAdminOutboundCreds',1),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\Lsa','LmCompatibilityLevel',5),
-			@('HKLM\System\CurrentControlSet\Control\Lsa','EveryoneIncludesAnonymous',0),
-			@('HKLM\System\CurrentControlSet\Control\Lsa','DisableDomainCreds',1),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest','UseLogonCredential',0),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest','Negotiate',0),
-			@('HKLM\System\CurrentControlSet\Services\Netlogon\Parameters','RequireSignOrSeal',1),
-			@('HKLM\System\CurrentControlSet\Services\Netlogon\Parameters','SealSecureChannel',1),
-			@('HKLM\System\CurrentControlSet\Services\Netlogon\Parameters','SignSecureChannel',1),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System','FilterAdministratorToken',1),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System','LocalAccountTokenFilterPolicy',0),
-			@('HKLM\System\CurrentControlSet\Services\LDAP','LDAPClientIntegrity',2),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','SecurityLayer',2),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','UserAuthentication',1),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','fEncryptRPCTraffic',1),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','KeepAliveInterval',1),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','DeleteTempDirsOnExit',1),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','MinEncryptionLevel',1),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','SMB1',0),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','EnableSecuritySignature',1),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','RequireSecuritySignature',1),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','AutoShareWks',0),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','AutoShareServer',0),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','RestrictNullSessAccess',1),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','EnablePlainTextPassword',0),
-			@('HKLM\System\CurrentControlSet\Services\Rdr\Parameters','EnableSecuritySignature',1),
-			@('HKLM\System\CurrentControlSet\Services\Rdr\Parameters','RequireSecuritySignature',1),
-			@('HKLM\System\CurrentControlSet\Services\LanmanWorkstation','AllowInsecureGuestAuth',0),
-			@('HKLM\System\CurrentControlSet\Services\LanmanWorkstation\Parameters','EnableSecuritySignature',1),
-			@('HKLM\System\CurrentControlSet\Services\LanmanWorkstation\Parameters','RequireSecuritySignature',1),
-			@('HKLM\System\CurrentControlSet\Services\LanmanWorkstation\Parameters','EnablePlainTextPassword',0),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\Netbt\Parameters','NodeType',2),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient','EnableMulticast',0), 	
-			@('HKLM\SYSTEM\CurrentControlSet\Services\WinHttpAutoProxySvc','Start',4),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\WebClient','Start',4),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\XboxGipSvc','Start',4),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\XblAuthManager','Start',4),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\XblGameSave','Start',4),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\XboxNetApiSvc','Start',4),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\Spooler','Start',4),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer','Start',4),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Internet Settings\Wpad','WpadOverride',0),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Internet Settings','AutoDetect',0),
-			@('HKLM\System\currentcontrolset\services\tcpip6\parameters','DisabledComponents',32),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate','WUServer',''),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU','UseWUServer',1),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters','SearchList', 'suffix-dns.mycorp.local,suffix2.corp.lo'),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient', 'SearchList', 'suffix-dns.mycorp.local,suffix2.corp.lo'),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\System', 'DontDisplayNetworkSelectionUI', 1),
-			@('HKLM\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters', 'EnableMDNS', 0),
-			@('HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Device Installer', 'DisableCoInstallers', 1),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service', 'AllowBasic', 0),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service', 'AllowDigest', 0),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service', 'AllowKerberos', 1),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service', 'CbtHardeningLevel', 'Strict'),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service', 'AllowNegotiate', 0),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client', 'AllowBasic', 0),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client', 'AllowDigest', 0),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client', 'AllowKerberos', 1),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client', 'CbtHardeningLevel', 'Strict'),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Client', 'AllowNegotiate', 0),
-			@('HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings', 'SecureProtocols', 10752),
-			@('HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings\WinHttp', 'DefaultSecureProtocols', 10752),
-			@('HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Internet Settings\WinHttp', 'DefaultSecureProtocols', 10752),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.3\Client', 'DisabledByDefault', 0),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.3\Client', 'Enabled', 1),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Client', 'DisabledByDefault', 0),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Client', 'Enabled', 1),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Client', 'DisabledByDefault', 1),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Client', 'Enabled', 0),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Client', 'DisabledByDefault', 1),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Client', 'Enabled', 0),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.3\Server', 'DisabledByDefault', 0),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.3\Server', 'Enabled', 1),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Server', 'DisabledByDefault', 0),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.2\Server', 'Enabled', 1),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Server', 'DisabledByDefault', 1),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.1\Server', 'Enabled', 0),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Server', 'DisabledByDefault', 1),
-			@('HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\Protocols\TLS 1.0\Server', 'Enabled', 0),
-			@('HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0', 'AuditReceivingNTLMTraffic', 2),
-			@('HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0', 'RestrictSendingNTLMTraffic', 1),
-			@('HKLM\System\CurrentControlSet\Services\Netlogon\Parameters', 'AuditNTLMInDomain', 7),	
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation', 'AllowDefaultCredentials', 0),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation', 'ConcatenateDefaults_AllowDefault', 0),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation', 'AllowDefCredentialsWhenNTLMOnly', 0),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation', 'ConcatenateDefaults_AllowDefNTLMOnly', 0),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation\AllowDefCredentialsWhenNTLMOnly', '1', ''),
-			@('HKLM\SOFTWARE\Policies\Microsoft\Windows\CredentialsDelegation\AllowDefaultCredentials', '1', ''),
-			@('HKLM\Software\Microsoft\PolicyManager\default\WiFi\AllowAutoConnectToWiFiSenseHotspots', 'value', 0),	
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS', 'BackupDirectory', 2),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS', 'PasswordAgeDays', 30),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS', 'PasswordLength', 20),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS', 'PasswordComplexity', 4),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS', 'ADPasswordEncryptionEnabled', 0),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS', 'ADBackupDSRMPassword', 1),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS', 'PostAuthenticationResetDelay', 6),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\LAPS', 'PostAuthenticationActions', 3),	
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config', 'BackupDirectory', 2),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config', 'PasswordAgeDays', 30),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config', 'PasswordLength', 20),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config', 'PasswordComplexity', 4),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config', 'ADPasswordEncryptionEnabled', 0),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config', 'ADBackupDSRMPassword', 1),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config', 'PostAuthenticationResetDelay', 6),
-			@('HKLM\Software\Microsoft\Windows\CurrentVersion\LAPS\Config', 'PostAuthenticationActions', 3),
-			@('HKLM\Software\Policies\Microsoft Services\AdmPwd', 'AdmPwdEnabled', 1),
-			@('HKLM\Software\Policies\Microsoft Services\AdmPwd', 'PwdExpirationProtectionEnabled', 1),
-			@('HKLM\Software\Policies\Microsoft Services\AdmPwd', 'PasswordComplexity', 4),
-			@('HKLM\Software\Policies\Microsoft Services\AdmPwd', 'PasswordLength', 20),
-			@('HKLM\Software\Policies\Microsoft Services\AdmPwd', 'PasswordAgeDays', 30),
-			@('HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\GPExtensions\{D76B9641-3288-4f75-942D-087DE603E3EA}', 'ExtensionDebugLevel', 2)
-		) | %{
-			$path=$_[0]
-			$key=$_[1]
-			$expected=$_[2]
-			$row = echo '' | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"$path\$key"}},Value,@{n="Expected";e={$expected}},Compliant
-			try{
-				$row.Value = (Get-ItemPropertyValue -Path "Registry::$path" -Name $key -ErrorAction Stop).ToString()
-			}catch{
-				$row.Value = 'undefined'
-			}
-			$row.Compliant = $row.Value -eq $row.Expected
-			$row
-		}
-		#
-		$row = echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"Has SCCM NAA ClearText Password"}},Value,@{n="Expected";e={$false}},Compliant
-		try {
-			$naa = Get-WmiObject -namespace "root\ccm\policy\Machine\ActualConfig" -class "CCM_NetworkAccessAccount" -ErrorAction Stop
-			$row.Value = $naa.NetworkAccessPassword.Length -gt 0			
-		}catch{
-			$row.Value = $false
-		}
-		$row.Compliant = $row.Value -eq $row.Expected
-		$ret += @($row)
-		#
-		$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"SyslogRefreshDate"}},@{n="Value";e={(Get-Date).ToString('yyyy-MM-dd HH:mm:ss')}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-		#
-		$tmp = Get-WmiObject Win32_OperatingSystem
-		$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"SystemDirectory"}},@{n="Value";e={$tmp.SystemDirectory}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-		$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"Organization"}},@{n="Value";e={$tmp.Organization}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-		$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"BuildNumber"}},@{n="Value";e={$tmp.BuildNumber}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-		$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"RegisteredUser"}},@{n="Value";e={$tmp.RegisteredUser}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-		$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"SerialNumber"}},@{n="Value";e={$tmp.SerialNumber}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-		$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"Version"}},@{n="Value";e={$tmp.Version}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-		return $ret
-	}
-}
-runTest @param
 
 
 ###############################################################################
