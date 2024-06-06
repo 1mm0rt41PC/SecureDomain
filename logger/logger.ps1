@@ -495,8 +495,10 @@ $param = @{
 				}
 			}catch{}
 		}	
-		$data = $data | Sort Path | ConvertTo-Csv -NoTypeInformation | sort -Unique	
-		return $($data | where { $_.Contains('path_Owner') }; $data | where { -not $_.Contains('path_Owner') })
+		$data = $data | Sort Path | ConvertTo-Csv -NoTypeInformation | sort -Unique
+  		$ret = $data | where { $_.Contains('path_Owner') };
+    		$ret += $data | where { -not $_.Contains('path_Owner') }
+		return $ret
 	}
 }
 runTest @param
