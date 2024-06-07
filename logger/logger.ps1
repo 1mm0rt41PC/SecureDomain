@@ -19,6 +19,7 @@
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
 # Update: 2024-06-07 - Fix SmbShare error
+# Update: 2024-06-07 - Fixed TPM rollback
 #>
 <#
 ###############################################################################
@@ -316,6 +317,29 @@ $param = @{
 			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"SerialNumber"}},@{n="Value";e={$tmp.SerialNumber}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
 			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"Version"}},@{n="Value";e={$tmp.Version}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
 		}
+		try{
+			$tpm = Get-TPM | Select @{n="HostName";e={$env:computername}},*
+			$ret += @($tpm | Select HostName,@{n="Key";e={"TpmPresent"}},@{n="Value";e={$_.TpmPresent}},@{n="Expected";e={$true}},@{n="Compliant";e={$_.TpmPresent -eq $true}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"TpmReady"}},@{n="Value";e={$_.TpmReady}},@{n="Expected";e={$true}},@{n="Compliant";e={$_.TpmReady -eq $true}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"TpmEnabled"}},@{n="Value";e={$_.TpmEnabled}},@{n="Expected";e={$true}},@{n="Compliant";e={$_.TpmEnabled -eq $true}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"TpmActivated"}},@{n="Value";e={$_.TpmActivated}},@{n="Expected";e={$true}},@{n="Compliant";e={$_.TpmActivated -eq $true}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"TpmOwned"}},@{n="Value";e={$_.TpmOwned}},@{n="Expected";e={$true}},@{n="Compliant";e={$_.TpmOwned -eq $true}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"RestartPending"}},@{n="Value";e={$_.RestartPending}},@{n="Expected";e={$false}},@{n="Compliant";e={$_.RestartPending -eq $false}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"ManufacturerId"}},@{n="Value";e={$_.ManufacturerId}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"ManufacturerIdTxt"}},@{n="Value";e={$_.ManufacturerIdTxt}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"ManufacturerVersion"}},@{n="Value";e={$_.ManufacturerVersion}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"ManufacturerVersionFull20"}},@{n="Value";e={$_.ManufacturerVersionFull20}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"OwnerAuth"}},@{n="Value";e={$_.OwnerAuth}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"OwnerClearDisabled"}},@{n="Value";e={$_.OwnerClearDisabled}},@{n="Expected";e={$false}},@{n="Compliant";e={$_.OwnerClearDisabled -eq $false}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"ManagedAuthLevel"}},@{n="Value";e={$_.ManagedAuthLevel}},@{n="Expected";e={"Full"}},@{n="Compliant";e={$_.ManagedAuthLevel -eq "Full"}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"AutoProvisioning"}},@{n="Value";e={$_.AutoProvisioning}},@{n="Expected";e={"Enabled"}},@{n="Compliant";e={$_.AutoProvisioning -eq "Enabled"}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"LockedOut"}},@{n="Value";e={$_.LockedOut}},@{n="Expected";e={$false}},@{n="Compliant";e={$_.LockedOut -eq $false}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"LockoutHealTime"}},@{n="Value";e={$_.LockoutHealTime}},@{n="Expected";e={"2 hours"}},@{n="Compliant";e={$_.LockoutHealTime -eq "2 hours"}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"LockoutCount"}},@{n="Value";e={$_.LockoutCount}},@{n="Expected";e={0}},@{n="Compliant";e={$_.LockoutCount -eq 0}})
+			$ret += @($tpm | Select HostName,@{n="Key";e={"LockoutMax"}},@{n="Value";e={$_.LockoutMax}},@{n="Expected";e={5}},@{n="Compliant";e={$_.LockoutMax -eq 5}})
+		}catch{
+			$ret += @(echo 1 | Select HostName,@{n="Key";e={"TpmPresent"}},@{n="Value";e={$false}},@{n="Expected";e={$true}},@{n="Compliant";e={$false}})
+		}		
 		return $ret
 	}
 }
