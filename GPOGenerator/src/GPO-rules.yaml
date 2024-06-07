@@ -386,7 +386,7 @@ Hardening:
             HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0:
                 # Audit incoming NTLM traffic: Enable auditing for all accounts
                 # to view => [System[(EventID=4624)]] and also Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-NTLM/Operational' ; Id = 8001,8002 }
-                AuditReceivingNTLMTraffic: DWord:2
+                AuditReceivingNTLMTraffic: DWord:1
             HKLM\System\CurrentControlSet\Services\Netlogon\Parameters:
                 # Audit NTLM Authentication in this domain: Enable all
                 # 0=>Disable, 1=>"Enable for domain accounts to domain servers", 2=>"Enable for domain accounts", 3=>"Enable for domain servers", 7=>"Enable all"
@@ -483,7 +483,7 @@ Log:
             HKLM\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0:
                 # Audit incoming NTLM traffic: Enable auditing for all accounts
                 # to view => [System[(EventID=4624)]] and also Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-NTLM/Operational' ; Id = 8001,8002 }
-                AuditReceivingNTLMTraffic: DWord:2
+                AuditReceivingNTLMTraffic: DWord:1
                 RestrictSendingNTLMTraffic: DWord:1
             HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\LSASS.exe:
                 AuditLevel: DWord:8
