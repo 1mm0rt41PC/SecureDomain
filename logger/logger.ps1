@@ -1,4 +1,29 @@
 <#
+# logger.ps1 - A simple script that automates Windows collect security info
+#
+# Filename: logger.ps1
+# Author: 1mm0rt41PC - immortal-pc.info - https://github.com/1mm0rt41PC
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; see the file COPYING. If not, write to the
+# Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+# Update: 2024-06-07 - Fix SmbShare error
+#>
+<#
+###############################################################################
+# INSTALL
+###############################################################################
 # LOG Server
 # ================================================
 $logs = "C:\logs"
@@ -30,6 +55,7 @@ $acl | Set-Acl $logs
 
 New-SmbShare -Name "logs$" -Path "$logs" -FullAccess $domComputer'
 
+###############################################################################
 # DC Server
 # ================================================
 $script='C:\Windows\SYSVOL\domain\scripts\logger.ps1'
@@ -469,36 +495,70 @@ $param = @{
 		if( $(Get-Service lanmanserver).Status -eq 'Stopped' ) {
 			return echo 1 | select @{n="HostName";e={$env:computername}},@{n="Name";e={"Service Stopped"}}
 		}
-		$smb = Get-SmbShare -ErrorAction Stop | select @{n="HostName";e={$env:computername}},*
-		$data = $smb | %{
+		$data = @()
+		Get-SmbShare -ErrorAction Stop | %{
 			$cRow = $_
-			$row = echo 1 | select @{n="HostName";e={$cRow.HostName}},@{n="Name";e={$cRow.Name}},@{n="Path";e={$cRow.Path}},@{n="Description";e={$cRow.Description}},@{n="CurrentUsers";e={$cRow.CurrentUsers}},@{n="CompressData";e={$cRow.CompressData}},@{n="EncryptData";e={$cRow.EncryptData}},smb_IdentityReference,smb_FileSystemRights,smb_AccessControlType,path_IdentityReference,path_FileSystemRights,path_AccessControlType,path_Owner
-			$_.PresetPathAcl.Access | %{		
-				$row.smb_AccessControlType = $_.AccessControlType
-				$row.smb_FileSystemRights = $_.FileSystemRights
-				$row.smb_IdentityReference = $_.IdentityReference
-				$row
-			}	
-		}
-
-		$data += $smb | %{
-			$cRow = $_
-			$row = echo 1 | select @{n="HostName";e={$cRow.HostName}},@{n="Name";e={$cRow.Name}},@{n="Path";e={$cRow.Path}},@{n="Description";e={$cRow.Description}},@{n="CurrentUsers";e={$cRow.CurrentUsers}},@{n="CompressData";e={$cRow.CompressData}},@{n="EncryptData";e={$cRow.EncryptData}},smb_IdentityReference,smb_FileSystemRights,smb_AccessControlType,path_IdentityReference,path_FileSystemRights,path_AccessControlType,path_Owner
 			try{
-				$acl = Get-Acl $_.Path
-				$row.path_Owner = $acl.Owner
-				$acl | select -ExpandProperty Access | %{		
-					$row.path_AccessControlType = $_.AccessControlType
-					$row.path_FileSystemRights = $_.FileSystemRights
-					$row.path_IdentityReference = $_.IdentityReference
-					$row
+				$cRow.PresetPathAcl.Access | %{
+					$acl = $_
+					$row = $cRow | select @{n="HostName";e={$env:computername}},
+						Name,
+						Path,
+						Description,
+						CurrentUsers,
+						CompressData,
+						EncryptData,
+						@{n="Type";e={"SMB ACL"}},
+						@{n="IdentityReference";e={$acl.IdentityReference}},
+						@{n="FileSystemRights";e={$acl.FileSystemRights}},
+						@{n="AccessControlType";e={$acl.AccessControlType}}
+					$data += @($row)
 				}
 			}catch{}
-		}	
-		$data = $data | Sort Path | ConvertTo-Csv -NoTypeInformation | sort -Unique
-  		$ret = $data | where { $_.Contains('path_Owner') };
-    		$ret += $data | where { -not $_.Contains('path_Owner') }
-		return $ret
+			
+			try{
+				$acl = Get-Acl $cRow.Path
+				$row = $cRow | select @{n="HostName";e={$env:computername}},
+					Name,
+					Path,
+					Description,
+					CurrentUsers,
+					CompressData,
+					EncryptData,
+					@{n="Type";e={"PATH ACL"}},
+					@{n="IdentityReference";e={$acl.Owner}},
+					@{n="FileSystemRights";e={"Owner"}},
+					@{n="AccessControlType";e={"Owner"}}
+				$data += @($row)
+				$acl | select -ExpandProperty Access | %{		
+					$pacl = $_
+					$row = $cRow | select @{n="HostName";e={$env:computername}},
+						Name,
+						Path,
+						Description,
+						CurrentUsers,
+						CompressData,
+						EncryptData,
+						@{n="Type";e={"PATH ACL"}},
+						@{n="IdentityReference";e={$pacl.IdentityReference}},
+						@{n="FileSystemRights";e={$pacl.FileSystemRights}},
+						@{n="AccessControlType";e={$pacl.AccessControlType}}
+					$data += @($row)
+				}
+			}catch{}
+		}
+		$data = $data | ?{ -not [string]::IsNullOrEmpty($_.IdentityReference) } | Sort-Object -Unique Path,Type,IdentityReference,FileSystemRights,AccessControlType
+		$data = $data | %{
+			if( $_.FileSystemRights -eq 268435456 ){
+				$_.FileSystemRights = 'FullControl'
+			}elseif( $_.FileSystemRights -eq -536805376 ){
+				$_.FileSystemRights = 'Modify, Synchronize'
+			}elseif( $_.FileSystemRights -eq -1610612736 ){
+				$_.FileSystemRights = 'ReadAndExecute, Synchronize'
+			}
+			$_
+		}
+		return $data
 	}
 }
 runTest @param
