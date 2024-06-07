@@ -297,7 +297,7 @@ New-GPO -Name "[1mm0rt41][Hardening](GPO,Computer) RDP server configuration" | %
 # [1mm0rt41][Hardening](GPO,Computer) LogSystem
 ###########################################################################################
 New-GPO -Name "[1mm0rt41][Hardening](GPO,Computer) LogSystem" -Comment "##################################`r`n`r`nWindows logs configuration:`r`n- type of logs`r`n- size of logs`r`n`r`nIf disabled: Lost logs information" | %{
-	$_ | Set-GPRegistryValue -Key "HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0" -ValueName "AuditReceivingNTLMTraffic" -Value 2 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0" -ValueName "AuditReceivingNTLMTraffic" -Value 1 -Type DWord >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\System\CurrentControlSet\Services\Netlogon\Parameters" -ValueName "AuditNTLMInDomain" -Value 7 -Type DWord >$null
 	$_ | Set-GPRegistryValue -Key "HKLM\Software\Policies\Microsoft\Windows\PowerShell\ModuleLogging" -ValueName "EnableModuleLogging" -Value 1 -Type DWord >$null
 	$_ | Set-GPRegistryValue -Key "HKCU\Software\Policies\Microsoft\Windows\PowerShell\Transcription" -ValueName "EnableTranscripting" -Value 1 -Type DWord >$null
