@@ -98,12 +98,35 @@ New-GPO -Name "[1mm0rt41][Audit] Syslog" | %{
 $syslogStorage = '\\DC-SRV01-Example.corp.lo\syslog$'
 $hostname = $env:COMPUTERNAME
 $delimiter = ','
+$logFolder = 'C:\Windows\logs\logger'
+$ErrorActionPreference = 'Stop'
+
 
 
 New-EventLog -LogName System -Source Logger2CSV -ErrorAction SilentlyContinue;
 
-$ErrorActionPreference = 'Stop'
-$logFolder = 'C:\Windows\logs\logger'
+
+function logMsg
+{
+	Param
+	(
+		[Parameter(Mandatory=$true, Position=0)]
+		[int] $EventId,
+		
+		[Parameter(Mandatory=$true, Position=1)]
+		[ValidateSet('Error','Information','FailureAudit','SuccessAudit','Warning')]
+		[string[]] $EntryType,
+		
+		[Parameter(Mandatory=$true, Position=2)]
+		[string] $Message
+	)
+	Write-Host -ForegroundColor White -BackgroundColor DarkRed $Message
+	try{
+		Write-EventLog -ErrorAction Stop -LogName System -Source Logger2CSV -EntryType $EntryType -Event $EventId -Message $Message
+	}catch{}
+}
+
+
 try{
 	mkdir -ErrorAction Stop -force $logFolder
 	$log = "$logFolder\$((get-date).ToString('yyyyMMddHms'))_$([guid]::NewGuid().ToString()).txt"
@@ -119,8 +142,7 @@ $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
 if( -not $scriptPath.Contains('\\') -or $syslogStorage -eq '\\DC-SRV01-Example.corp.lo\syslog$' ){
 	$syslogStorage = '.\output_sample\per_computer'
 	mkdir -Force $syslogStorage > $null
-	Write-Host -ForegroundColor White -BackgroundColor DarkRed "Mode test => Reason: the script $($MyInvocation.MyCommand.Definition) is not on a shared folder"
-	Write-EventLog -ErrorAction SilentlyContinue -LogName System -Source Logger2CSV -EntryType Warning -Event 2 -Message "Mode test => Reason: the script $($MyInvocation.MyCommand.Definition) is not on a shared folder"
+	logMsg -EntryType Warning -Event 2 -Message "Mode test => Reason: the script $($MyInvocation.MyCommand.Definition) is not on a shared folder"
 }
 Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Files storage: $syslogStorage\*_${hostname}.csv"
 
@@ -146,8 +168,7 @@ function runTest
 		$obj = $InlineCode.Invoke()
 	}catch{
 		$err = "$Name - $ErrorMessage | Err: $($_.Exception.Message)"
-		Write-EventLog -ErrorAction SilentlyContinue -LogName System -Source Logger2CSV -EntryType Error -Event 3 -Message "$err"
-		Write-Host -ForegroundColor White -BackgroundColor DarkRed "[!] $err"
+		logMsg -EntryType Error -Event 3 -Message $err
 		$obj = echo 1 | select @{n="HostName";e={$env:computername}},@{n="$ErrorColumn";e={$err}}
 	}
 	try{
@@ -155,9 +176,7 @@ function runTest
 		$obj | ConvertTo-Csv -Delimiter $delimiter -NoTypeInformation | Out-File -Encoding UTF8 "$syslogStorage\${Output}_${hostname}.csv"
 		Write-Host "	> Written: $syslogStorage\${Output}_${hostname}.csv"
 	}catch{
-		$err = "$Name - Unable to write into >$syslogStorage\${Output}_${hostname}.csv< | Err: $($_.Exception.Message)"
-		Write-EventLog -ErrorAction SilentlyContinue -LogName System -Source Logger2CSV -EntryType Error -Event 4 -Message "$err"
-		Write-Host -ForegroundColor White -BackgroundColor DarkRed "[!] $err"
+		logMsg -EntryType Error -Event 4 -Message "$Name - Unable to write into >$syslogStorage\${Output}_${hostname}.csv< | Err: $($_.Exception.Message)"
 	}
 }
 
@@ -510,9 +529,7 @@ $param = @{
 				@{n="SessionId";e={$_.SessionId}},
 				@{n="CreationDate";e={$_.StartTime}} | Select HostName,OwnerDomain,Owner,UserSID,@{n="IsLocalUser";e={($_.UserSID.Length -le 12) -or ($_.OwnerDomain -eq $_.HostName)}},ProcessId,CommandLine,Description,Name,SessionId,CreationDate
 		}catch{
-			$err = "List Process - Unable to run >Get-Process -IncludeUserName< | Err: $($_.Exception.Message) | Using failover with WMI"
-			Write-EventLog -ErrorAction SilentlyContinue -LogName System -Source Logger2CSV -EntryType Error -Event 4 -Message "$err"
-			Write-Host -ForegroundColor White -BackgroundColor DarkRed "[!] $err"
+			logMsg -EntryType Error -Event 4 -Message "List Process - Unable to run >Get-Process -IncludeUserName< | Err: $($_.Exception.Message) | Using failover with WMI"
 			
 			return Get-WmiObject Win32_Process -ErrorAction Stop | %{
 				$row = $_ | Select @{n="HostName";e={$env:computername}},
@@ -706,9 +723,7 @@ $param = @{
 					try{
 						$localSid = (New-Object System.Security.Principal.NTAccount("Guest")).Translate([System.Security.Principal.SecurityIdentifier]).Value
 					}catch{
-						$err = "SecEdit - Unable to find local SID"
-						Write-EventLog -ErrorAction SilentlyContinue -LogName System -Source Logger2CSV -EntryType Error -Event 3 -Message "$err"
-						Write-Host -ForegroundColor White -BackgroundColor DarkRed "[!] $err"
+						logMsg -EntryType Error -Event 3 -Message "SecEdit - Unable to find local SID"
 					}
 				}
 			}
@@ -908,7 +923,9 @@ runTest @param
 
 # Log the activity
 Stop-Transcript > $null
-Write-EventLog -ErrorAction SilentlyContinue -LogName System -Source Logger2CSV -EntryType Information -Event 1 -Message $(cat $log | Out-String)
+try{
+	Write-EventLog -ErrorAction Stop -LogName System -Source Logger2CSV -EntryType Information -Event 1 -Message $(cat $log | Out-String)
+}catch{}
 
 $limit = (Get-Date).AddDays(-15)
 Get-ChildItem -Path $logFolder -Force | Where-Object { !$_.PSIsContainer -and $_.CreationTime -lt $limit } | Remove-Item -Force
@@ -916,13 +933,9 @@ Get-ChildItem -Path $logFolder -Force | Where-Object { !$_.PSIsContainer -and $_
 # Test if ALCs on destination are OK
 try {
 	ls "$syslogStorage" -ErrorAction Stop > $null	
-	$msg = "The user $($env:USERNAME) is allowed to list files in $syslogStorage"
-	Write-Host -ForegroundColor White -BackgroundColor DarkRed "$msg"
-	Write-EventLog -ErrorAction SilentlyContinue -LogName System -Source Logger2CSV -EntryType Warning -Event 3 -Message "$msg"
+	logMsg -EntryType Warning -Event 3 -Message "The user $($env:USERNAME) is allowed to list files in $syslogStorage"
 }catch{}
 try {
 	cat "$syslogStorage\Configuration_${hostname}.csv" -ErrorAction Stop > $null
-	$msg = "The user $($env:USERNAME) is allowed to read files in $syslogStorage"
-	Write-Host -ForegroundColor White -BackgroundColor DarkRed "$msg"
-	Write-EventLog -ErrorAction SilentlyContinue -LogName System -Source Logger2CSV -EntryType Warning -Event 3 -Message "$msg"
+	logMsg -EntryType Warning -Event 3 -Message "The user $($env:USERNAME) is allowed to read files in $syslogStorage"
 }catch{}
