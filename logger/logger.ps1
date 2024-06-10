@@ -103,8 +103,15 @@ New-EventLog -LogName System -Source Logger2CSV -ErrorAction SilentlyContinue;
 
 $ErrorActionPreference = 'Stop'
 $logFolder = 'C:\Windows\logs\logger'
-mkdir -force $logFolder
-$log = "$logFolder\$((get-date).ToString('yyyyMMddHms'))_$([guid]::NewGuid().ToString()).txt"
+try{
+	mkdir -ErrorAction Stop -force $logFolder
+	$log = "$logFolder\$((get-date).ToString('yyyyMMddHms'))_$([guid]::NewGuid().ToString()).txt"
+}catch{
+	Write-Host -ForegroundColor White -BackgroundColor DarkRed "Unable to create folder $logFolder"
+	$logFolder = "$($env:temp)\logger"
+	mkdir -ErrorAction Stop -force $logFolder
+	$log = "$logFolder\$((get-date).ToString('yyyyMMddHms'))_$([guid]::NewGuid().ToString()).txt"
+}
 Start-Transcript -Path $log -Force
 
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
