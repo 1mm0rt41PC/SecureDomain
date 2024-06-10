@@ -18,6 +18,7 @@
 # along with this program; see the file COPYING. If not, write to the
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
+# Update: 2024-06-10 - Fix crash when non admin run
 # Update: 2024-06-07 - Fix SmbShare error
 # Update: 2024-06-07 - Fixed TPM rollback
 # Update: 2024-06-07 - Add conf desc
