@@ -60,7 +60,9 @@ $xml = @'
 			<Select Path="security">
 				*[System[(EventID=4624)]]
 				and
-				 *[EventData[Data[@Name='LmPackageName']='NTLM V1']]
+				 *[EventData[Data[@Name='LmPackageName']!='NTLM V2']]
+     				and
+				 *[EventData[Data[@Name='LmPackageName']!='Kerberos']]
 			</Select>
 		</Query>
 	</QueryList>
