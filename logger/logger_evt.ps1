@@ -66,8 +66,9 @@ $xml = @'
 		</Query>
 	</QueryList>
 '@
-# Get-WinEvent -FilterXml $xml -ErrorAction SilentlyContinue
-Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{LogName='Security'; Id=4624; 'LmPackageName'='NTLM V1'; StartTime=(get-date).AddHours(-1*$hoursHistory)} | ForEach-Object {
+# Require Powershellv6 : https://learn.microsoft.com/fr-fr/powershell/scripting/samples/creating-get-winevent-queries-with-filterhashtable?view=powershell-7.4#code-try-3
+# Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{LogName='Security'; Id=4624; 'LmPackageName'='NTLM V1'; StartTime=(get-date).AddHours(-1*$hoursHistory)}
+Get-WinEvent -FilterXml $xml -ErrorAction SilentlyContinue | ForEach-Object {
 	$h = @{}
 	([xml]$_.Toxml()).Event.EventData.Data | ForEach-Object {
 		$h.Add($_.'Name',$_.'#text')
