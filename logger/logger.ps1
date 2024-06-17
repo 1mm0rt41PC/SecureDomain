@@ -158,18 +158,25 @@ function runTest
 		[Parameter(Mandatory=$true, Position=2)]
 		[string] $ErrorMessage,
 		[Parameter(Mandatory=$true, Position=3)]
-		[string] $ErrorColumn,
+		$ColumnsList,
 		[Parameter(Mandatory=$true, Position=4)]
 		[scriptblock] $InlineCode
 	)
     Write-Host "[*] $Name"
+	$ColumnsList = $ColumnsList | Select @{n="HostName";e={$env:computername}},*,Error
 	$obj = @()
 	try{
-		$obj = $InlineCode.Invoke()
+		$obj = $InlineCode.Invoke($ColumnsList)
+		if( $obj.Count -gt 0 -and $obj[0].HostName -eq $null ){
+			$obj = $obj | Select -ExcludeProperty HostName @{n="HostName";e={$env:computername}},*
+		}
+		if( $obj.Count -gt 0 -and -not($obj[0].PSObject.Properties.Name -Contains "Error") ){
+			$obj = $obj | Select *,Error
+		}
 	}catch{
 		$err = "$Name - $ErrorMessage | Err: $($_.Exception.Message)"
 		logMsg -EntryType Error -Event 3 -Message $err
-		$obj = echo 1 | select @{n="HostName";e={$env:computername}},@{n="$ErrorColumn";e={$err}}
+		$obj = @($ColumnsList | Select * | %{ $_.Error=$err; $_ })
 	}
 	try{
 		Write-Host "	> Found: $($obj.Count)"
@@ -185,10 +192,11 @@ function runTest
 # List config
 $param = @{
 	Name="List config";
-	Output="Configuration";
+	Output="Configurations";
 	ErrorMessage=">Reg< not supported";
-	ErrorColumn="DisplayName";
+	ColumnsList=1 | Select Key,Value,Expected,Compliant;
 	InlineCode={
+		param($ColumnsList)
 		$ret = @(
 			@('Audit auth - NTLM','HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0', 'AuditReceivingNTLMTraffic', 1),
 			@('Audit auth - NTLM','HKLM\System\CurrentControlSet\Control\Lsa\MSV1_0', 'RestrictSendingNTLMTraffic', 1),
@@ -307,11 +315,12 @@ $param = @{
 			@('WinRM Server','HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service', 'AllowNegotiate', 0),
 			@('WinRM Server','HKLM\SOFTWARE\Policies\Microsoft\Windows\WinRM\Service', 'CbtHardeningLevel', 'Strict')
 		) | %{
+			$row = $ColumnsList | Select *
 			$desc=$_[0]
 			$path=$_[1]
 			$key=$_[2]
-			$expected=$_[3]
-			$row = echo '' | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"$desc | $path\$key"}},Value,@{n="Expected";e={$expected}},Compliant
+			$row.Key = "$desc | $path\$key"
+			$row.Expected = $_[3]
 			try{
 				$row.Value = (Get-ItemPropertyValue -Path "Registry::$path" -Name $key -ErrorAction Stop).ToString()
 			}catch{
@@ -323,11 +332,11 @@ $param = @{
 		#
 		$data = winmgmt /verifyrepository
 		$row_LASTEXITCODE = $LASTEXITCODE
-		$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"wmi-repository-status"}},@{n="Value";e={$data}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+		$ret += @($ColumnsList | Select * | %{ $_.Key='wmi-repository-status'; $_.Value=$data; $_.Expected='N/A'; $_.Compliant='N/A'; $_ })
 		$wmiRepoSize = (Get-ChildItem -Path $env:windir\System32\Wbem\Repository | Measure-Object -Property Length -Sum).Sum
-		$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"wmi-repository-size"}},@{n="Value";e={$wmiRepoSize/1024/1024/1024}},@{n="Expected";e={"<1"}},@{n="Compliant";e={$wmiRepoSize -lt 1*1024*1024*1024}})
+		$ret += @($ColumnsList | Select * | %{ $_.Key='wmi-repository-size'; $_.Value=$wmiRepoSize/1024/1024/1024; $_.Expected='<1'; $_.Compliant=$_.Value -lt 1.0; $_ })
 		if( $row_LASTEXITCODE -eq 0 -and $wmiRepoSize -lt 1*1024*1024*1024 ){
-			$row = echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"Has SCCM NAA ClearText Password"}},Value,@{n="Expected";e={$false}},Compliant
+			$row = $ColumnsList | Select * | %{ $_.Key="Has SCCM NAA ClearText Password"; $_.Expected=$false; $_ }
 			try {
 				$naa = Get-WmiObject -namespace "root\ccm\policy\Machine\ActualConfig" -class "CCM_NetworkAccessAccount" -ErrorAction Stop
 				$row.Value = $naa.NetworkAccessPassword.Length -gt 0			
@@ -337,59 +346,61 @@ $param = @{
 			$row.Compliant = $row.Value -eq $row.Expected
 			$ret += @($row)
 			#
-			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"SyslogRefreshDate"}},@{n="Value";e={(Get-Date).ToString('yyyy-MM-dd HH:mm:ss')}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+			$ret += @($ColumnsList | Select * | %{$_.Key="SyslogRefreshDate"; $_.Value=(Get-Date).ToString('yyyy-MM-dd HH:mm:ss'); $_.Expected="N/A"; $_.Compliant="N/A"; $_})
 			#
 			$tmp = Get-WmiObject Win32_OperatingSystem
-			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"SystemDirectory"}},@{n="Value";e={$tmp.SystemDirectory}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"Organization"}},@{n="Value";e={$tmp.Organization}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"BuildNumber"}},@{n="Value";e={$tmp.BuildNumber}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"RegisteredUser"}},@{n="Value";e={$tmp.RegisteredUser}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"SerialNumber"}},@{n="Value";e={$tmp.SerialNumber}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"Version"}},@{n="Value";e={$tmp.Version}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+			$ret += @($ColumnsList | Select * | %{$_.Key="SystemDirectory"; $_.Value=$tmp.SystemDirectory; $_.Expected="N/A"; $_.Compliant="N/A"; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Organization"; $_.Value=$tmp.Organization; $_.Expected="N/A"; $_.Compliant="N/A"; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="BuildNumber"; $_.Value=$tmp.BuildNumber; $_.Expected="N/A"; $_.Compliant="N/A"; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="RegisteredUser"; $_.Value=$tmp.RegisteredUser; $_.Expected="N/A"; $_.Compliant="N/A"; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="SerialNumber"; $_.Value=$tmp.SerialNumber; $_.Expected="N/A"; $_.Compliant="N/A"; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Version"; $_.Value=$tmp.Version; $_.Expected="N/A"; $_.Compliant="N/A"; $_})
 		}
 		try{
-			$tpm = Get-TPM | Select @{n="HostName";e={$env:computername}},*
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-Present"}},@{n="Value";e={$_.TpmPresent}},@{n="Expected";e={$true}},@{n="Compliant";e={$_.TpmPresent -eq $true}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-Ready"}},@{n="Value";e={$_.TpmReady}},@{n="Expected";e={$true}},@{n="Compliant";e={$_.TpmReady -eq $true}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-Enabled"}},@{n="Value";e={$_.TpmEnabled}},@{n="Expected";e={$true}},@{n="Compliant";e={$_.TpmEnabled -eq $true}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-Activated"}},@{n="Value";e={$_.TpmActivated}},@{n="Expected";e={$true}},@{n="Compliant";e={$_.TpmActivated -eq $true}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-Owned"}},@{n="Value";e={$_.TpmOwned}},@{n="Expected";e={$true}},@{n="Compliant";e={$_.TpmOwned -eq $true}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-RestartPending"}},@{n="Value";e={$_.RestartPending}},@{n="Expected";e={$false}},@{n="Compliant";e={$_.RestartPending -eq $false}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-ManufacturerId"}},@{n="Value";e={$_.ManufacturerId}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-ManufacturerIdTxt"}},@{n="Value";e={$_.ManufacturerIdTxt}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-ManufacturerVersion"}},@{n="Value";e={$_.ManufacturerVersion}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-ManufacturerVersionFull20"}},@{n="Value";e={$_.ManufacturerVersionFull20}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-OwnerAuth"}},@{n="Value";e={$_.OwnerAuth}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-OwnerClearDisabled"}},@{n="Value";e={$_.OwnerClearDisabled}},@{n="Expected";e={$false}},@{n="Compliant";e={$_.OwnerClearDisabled -eq $false}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-ManagedAuthLevel"}},@{n="Value";e={$_.ManagedAuthLevel}},@{n="Expected";e={"Full"}},@{n="Compliant";e={$_.ManagedAuthLevel -eq "Full"}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-AutoProvisioning"}},@{n="Value";e={$_.AutoProvisioning}},@{n="Expected";e={"Enabled"}},@{n="Compliant";e={$_.AutoProvisioning -eq "Enabled"}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-LockedOut"}},@{n="Value";e={$_.LockedOut}},@{n="Expected";e={$false}},@{n="Compliant";e={$_.LockedOut -eq $false}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-LockoutHealTime"}},@{n="Value";e={$_.LockoutHealTime}},@{n="Expected";e={"2 hours"}},@{n="Compliant";e={$_.LockoutHealTime -eq "2 hours"}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-LockoutCount"}},@{n="Value";e={$_.LockoutCount}},@{n="Expected";e={0}},@{n="Compliant";e={$_.LockoutCount -eq 0}})
-			$ret += @($tpm | Select HostName,@{n="Key";e={"Tpm-LockoutMax"}},@{n="Value";e={$_.LockoutMax}},@{n="Expected";e={5}},@{n="Compliant";e={$_.LockoutMax -eq 5}})
+			$tpm = Get-TPM
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-Present"; $_.Value=$tpm.TpmPresent; $_.Expected=$true; $_.Compliant=$_.Expected -eq $_.Value; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-Ready"; $_.Value=$tpm.TpmReady; $_.Expected=$true; $_.Compliant=$_.Expected -eq $_.Value; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-Enabled"; $_.Value=$tpm.TpmEnabled; $_.Expected=$true; $_.Compliant=$_.Expected -eq $_.Value; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-Activated"; $_.Value=$tpm.TpmActivated; $_.Expected=$true; $_.Compliant=$_.Expected -eq $_.Value; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-Owned"; $_.Value=$tpm.TpmOwned; $_.Expected=$true; $_.Compliant=$_.Expected -eq $_.Value; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-RestartPending"; $_.Value=$tpm.RestartPending; $_.Expected=$false; $_.Compliant=$_.Expected -eq $_.Value; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-ManufacturerId"; $_.Value=$tpm.ManufacturerId; $_.Expected="N/A"; $_.Compliant="N/A"; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-ManufacturerId"; $_.Value=$tpm.ManufacturerId; $_.Expected="N/A"; $_.Compliant="N/A"; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-ManufacturerIdTxt"; $_.Value=$tpm.ManufacturerIdTxt; $_.Expected="N/A"; $_.Compliant="N/A"; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-ManufacturerVersion"; $_.Value=$tpm.ManufacturerVersion; $_.Expected="N/A"; $_.Compliant="N/A"; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-ManufacturerVersionFull20"; $_.Value=$tpm.ManufacturerVersionFull20; $_.Expected="N/A"; $_.Compliant="N/A"; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-OwnerAuth"; $_.Value=$tpm.OwnerAuth; $_.Expected=$true; $_.Compliant=$_.Expected -eq $_.Value; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-OwnerClearDisabled"; $_.Value=$tpm.OwnerClearDisabled; $_.Expected=$true; $_.Compliant=$_.Expected -eq $_.Value; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-ManagedAuthLevel"; $_.Value=$tpm.ManagedAuthLevel; $_.Expected="Full"; $_.Compliant=$_.Expected -eq $_.Value; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-AutoProvisioning"; $_.Value=$tpm.AutoProvisioning; $_.Expected="Enabled"; $_.Compliant=$_.Expected -eq $_.Value; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-LockedOut"; $_.Value=$tpm.LockedOut; $_.Expected=$false; $_.Compliant=$_.Expected -eq $_.Value; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-LockoutHealTime"; $_.Value=$tpm.LockoutHealTime; $_.Expected="2 hours"; $_.Compliant=$_.Expected -eq $_.Value; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-LockoutCount"; $_.Value=$tpm.LockoutCount; $_.Expected=0; $_.Compliant=$_.Expected -eq $_.Value; $_})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-LockoutMax"; $_.Value=$tpm.LockoutMax; $_.Expected=5; $_.Compliant=$_.Expected -eq $_.Value; $_})
 		}catch{
 			$err = $_.Exception.Message
-			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"Tpm-Present"}},@{n="Value";e={$err}},@{n="Expected";e={$true}},@{n="Compliant";e={$false}})
+			$ret += @($ColumnsList | Select * | %{$_.Key="Tpm-Present"; $_.Value=$err; $_.Expected=$true; $_.Compliant=$_.Expected -eq $_.Value; $_.Error=$err; $_})
 		}
 		try{
-			Get-BitLockerVolume | Select @{n="HostName";e={$env:computername}},* | %{
-				$ret += @($_ | Select HostName,@{n="Key";e={"BitLocker-MountPoint"}},@{n="Value";e={$_.MountPoint}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-				$ret += @($_ | Select HostName,@{n="Key";e={"BitLocker-EncryptionMethod_"+$_.MountPoint}},@{n="Value";e={$_.EncryptionMethod}},@{n="Expected";e={"XtsAes256"}},@{n="Compliant";e={$_.EncryptionMethod -eq "XtsAes256"}})
-				$ret += @($_ | Select HostName,@{n="Key";e={"BitLocker-AutoUnlockEnabled_"+$_.MountPoint}},@{n="Value";e={$_.AutoUnlockEnabled}},@{n="Expected";e={$false}},@{n="Compliant";e={$_.AutoUnlockEnabled -eq $false}})
-				$ret += @($_ | Select HostName,@{n="Key";e={"BitLocker-AutoUnlockKeyStored_"+$_.MountPoint}},@{n="Value";e={$_.AutoUnlockKeyStored}},@{n="Expected";e={$false}},@{n="Compliant";e={$_.AutoUnlockKeyStored -eq $false}})
-				$ret += @($_ | Select HostName,@{n="Key";e={"BitLocker-VolumeStatus_"+$_.MountPoint}},@{n="Value";e={$_.VolumeStatus}},@{n="Expected";e={"FullyEncrypted"}},@{n="Compliant";e={$_.VolumeStatus -eq "FullyEncrypted"}})
-				$ret += @($_ | Select HostName,@{n="Key";e={"BitLocker-ProtectionStatus_"+$_.MountPoint}},@{n="Value";e={$_.ProtectionStatus}},@{n="Expected";e={"On"}},@{n="Compliant";e={$_.ProtectionStatus -eq "On"}})
-				$ret += @($_ | Select HostName,@{n="Key";e={"BitLocker-LockStatus_"+$_.MountPoint}},@{n="Value";e={$_.LockStatus}},@{n="Expected";e={"Unlocked"}},@{n="Compliant";e={$_.LockStatus -eq "Unlocked"}})
-				$ret += @($_ | Select HostName,@{n="Key";e={"BitLocker-EncryptionPercentage_"+$_.MountPoint}},@{n="Value";e={$_.EncryptionPercentage}},@{n="Expected";e={100}},@{n="Compliant";e={$_.EncryptionPercentage -eq 100}})
-				$ret += @($_ | Select HostName,@{n="Key";e={"BitLocker-WipePercentage_"+$_.MountPoint}},@{n="Value";e={$_.WipePercentage}},@{n="Expected";e={0}},@{n="Compliant";e={$_.WipePercentage -eq 0}})
-				$ret += @($_ | Select HostName,@{n="Key";e={"BitLocker-VolumeType_"+$_.MountPoint}},@{n="Value";e={$_.VolumeType}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-				$ret += @($_ | Select HostName,@{n="Key";e={"BitLocker-CapacityGB_"+$_.MountPoint}},@{n="Value";e={$_.CapacityGB}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
-				$ret += @($_ | Select HostName,@{n="Key";e={"BitLocker-KeyProtector_"+$_.MountPoint}},@{n="Value";e={$_.KeyProtector -Join ','}},@{n="Expected";e={"N/A"}},@{n="Compliant";e={"N/A"}})
+			Get-BitLockerVolume | %{
+				$bitlocker=$_
+				$ret += @($ColumnsList | Select * | %{$_.Key="BitLocker-MountPoint"; $_.Value=$bitlocker.MountPoint; $_.Expected="N/A"; $_.Compliant="N/A"; $_})
+				$ret += @($ColumnsList | Select * | %{$_.Key="BitLocker-EncryptionMethod_"+$bitlocker.MountPoint; $_.Value=$bitlocker.EncryptionMethod; $_.Expected="XtsAes256"; $_.Compliant=$_.Value -eq $_.Expected; $_})
+				$ret += @($ColumnsList | Select * | %{$_.Key="BitLocker-AutoUnlockEnabled_"+$bitlocker.MountPoint; $_.Value=$bitlocker.AutoUnlockEnabled; $_.Expected=$false; $_.Compliant=$_.Value -eq $_.Expected; $_})
+				$ret += @($ColumnsList | Select * | %{$_.Key="BitLocker-AutoUnlockKeyStored_"+$bitlocker.MountPoint; $_.Value=$bitlocker.AutoUnlockKeyStored; $_.Expected=$false; $_.Compliant=$_.Value -eq $_.Expected; $_})
+				$ret += @($ColumnsList | Select * | %{$_.Key="BitLocker-VolumeStatus_"+$bitlocker.MountPoint; $_.Value=$bitlocker.VolumeStatus; $_.Expected="FullyEncrypted"; $_.Compliant=$_.Value -eq $_.Expected; $_})
+				$ret += @($ColumnsList | Select * | %{$_.Key="BitLocker-ProtectionStatus_"+$bitlocker.MountPoint; $_.Value=$bitlocker.ProtectionStatus; $_.Expected="On"; $_.Compliant=$_.Value -eq $_.Expected; $_})
+				$ret += @($ColumnsList | Select * | %{$_.Key="BitLocker-LockStatus_"+$bitlocker.MountPoint; $_.Value=$bitlocker.LockStatus; $_.Expected="Unlocked"; $_.Compliant=$_.Value -eq $_.Expected; $_})
+				$ret += @($ColumnsList | Select * | %{$_.Key="BitLocker-EncryptionPercentage_"+$bitlocker.MountPoint; $_.Value=$bitlocker.EncryptionPercentage; $_.Expected=100; $_.Compliant=$_.Value -eq $_.Expected; $_})
+				$ret += @($ColumnsList | Select * | %{$_.Key="BitLocker-WipePercentage_"+$bitlocker.MountPoint; $_.Value=$bitlocker.WipePercentage; $_.Expected=0; $_.Compliant=$_.Value -eq $_.Expected; $_})
+				$ret += @($ColumnsList | Select * | %{$_.Key="BitLocker-VolumeType_"+$bitlocker.MountPoint; $_.Value=$bitlocker.VolumeType; $_.Expected="N/A"; $_.Compliant="N/A"; $_})
+				$ret += @($ColumnsList | Select * | %{$_.Key="BitLocker-CapacityGB_"+$bitlocker.MountPoint; $_.Value=$bitlocker.CapacityGB; $_.Expected="N/A"; $_.Compliant="N/A"; $_})
+				$ret += @($ColumnsList | Select * | %{$_.Key="BitLocker-KeyProtector_"+$bitlocker.MountPoint; $_.Value=$bitlocker.KeyProtector -Join ','; $_.Expected="N/A"; $_.Compliant="N/A"; $_})
 			}
-			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"BitLocker-Supported"}},@{n="Value";e={$true}},@{n="Expected";e={$true}},@{n="Compliant";e={$true}})
+			$ret += @($ColumnsList | Select * | %{$_.Key="BitLocker-Supported"; $_.Value=$true; $_.Expected=$true; $_.Compliant=$_.Expected -eq $_.Value; $_})
 		}catch{
 			$err = $_.Exception.Message
-			$ret += @(echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Key";e={"BitLocker-Supported"}},@{n="Value";e={$err}},@{n="Expected";e={$true}},@{n="Compliant";e={$false}})
+			$ret += @($ColumnsList | Select * | %{$_.Key="BitLocker-Supported"; $_.Value=$err; $_.Expected=$true; $_.Compliant=$_.Expected -eq $_.Value; $_.Error=$err; $_})
 		}
 		return $ret
 	}
@@ -401,11 +412,12 @@ runTest @param
 # List local users
 $param = @{
 	Name="List local users";
-	Output="LocalUser";
+	Output="LocalUsers";
 	ErrorMessage="Get-LocalUser not supported";
-	ErrorColumn="Name";
+	ColumnsList=1 | Select Name,SID,AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon;
 	InlineCode={
-		return Get-LocalUser -ErrorAction Stop | select @{n="HostName";e={$env:computername}},Name,SID,AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon
+		param($ColumnsList)
+		return Get-LocalUser -ErrorAction Stop | Select Name,SID,AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon
 	}
 }
 runTest @param
@@ -415,13 +427,13 @@ runTest @param
 # List local users
 $param = @{
 	Name="List local group members";
-	Output="LocalGroup";
+	Output="LocalGroups";
 	ErrorMessage=">Get-WmiObject win32_group< not supported";
-	ErrorColumn="Name";
+	ColumnsList=1 | Select Name,SID,Caption,LocalAccount,Member;
 	InlineCode={
+		param($ColumnsList)
 		return Get-WmiObject win32_group -filter "Domain='$hostname'" -ErrorAction Stop | %{
-			$row = '' | select HostName,Name,SID,Caption,LocalAccount,Member
-			$row.HostName = $env:COMPUTERNAME
+			$row = $ColumnsList | Select *
 			$row.Name = $_.Name
 			$row.SID = $_.SID
 			$row.Caption = $_.Caption.Split('\')[1]
@@ -444,14 +456,21 @@ runTest @param
 # List ScheduledTask
 $param = @{
 	Name="List ScheduledTask";
-	Output="ScheduledTask";
+	Output="ScheduledTasks";
 	ErrorMessage=">schtasks< not supported";
-	ErrorColumn="TaskName";
+	ColumnsList=1 | Select "TaskName","Next Run Time","Status","Logon Mode","Last Run Time","Last Result","Author","Task To Run","Start In","Comment","Scheduled Task State","Idle Time","Power Management","Run As User","Delete Task If Not Rescheduled","Stop Task If Runs X Hours and X Mins","Schedule","Schedule Type","Start Time","Start Date","End Date","Days","Months","Repeat: Every","Repeat: Until: Time","Repeat: Until: Duration","Repeat: Stop If Still Running";
 	InlineCode={
-		return @"
-"HostName","TaskName","Next Run Time","Status","Logon Mode","Last Run Time","Last Result","Author","Task To Run","Start In","Comment","Scheduled Task State","Idle Time","Power Management","Run As User","Delete Task If Not Rescheduled","Stop Task If Runs X Hours and X Mins","Schedule","Schedule Type","Start Time","Start Date","End Date","Days","Months","Repeat: Every","Repeat: Until: Time","Repeat: Until: Duration","Repeat: Stop If Still Running"
-$((schtasks.exe /query /V /FO csv)  -join "`r`n")
-"@ | ConvertFrom-CSV
+		param($ColumnsList)
+		$schtasks = schtasks.exe /query /V /FO csv 2>&1
+		if( $LASTEXITCODE -eq 0 ){
+			return @"
+"HostName","TaskName","Next Run Time","Status","Logon Mode","Last Run Time","Last Result","Author","Task To Run","Start In","Comment","Scheduled Task State","Idle Time","Power Management","Run As User","Delete Task If Not Rescheduled","Stop Task If Runs X Hours and X Mins","Schedule","Schedule Type","Start Time","Start Date","End Date","Days","Months","Repeat: Every","Repeat: Until: Time","Repeat: Until: Duration","Repeat: Stop If Still Running","Error"
+$($schtasks -join "`r`n")
+"@ | ConvertFrom-CSV | where { $_.HostName -eq $env:COMPUTERNAME }
+		}else{
+			$schtasks = $schtasks | out-string
+			throw $schtasks
+		}
 	}
 }
 runTest @param
@@ -461,14 +480,18 @@ runTest @param
 # List RDP Sessions
 $param = @{
 	Name="List RDP Sessions";
-	Output="RDPSession";
+	Output="RDPSessions";
 	ErrorMessage=">schtasks< not supported";
-	ErrorColumn="User";
+	ColumnsList=1 | Select User,SessionID,Status;
 	InlineCode={
-		return qwinsta | foreach {
-			if ($_ -NotMatch "services|console" -and $_ -match "Disc|Active|Acti|Déco") {
-				$session = $($_ -Replace ' {2,}', ',').split(',')
-				echo 1 | select  @{n="HostName";e={$env:computername}}, @{n="User";e={$session[1]}}, @{n="SessionID";e={$session[2]}}, @{n="Status";e={$session[3]}}
+		param($ColumnsList)
+		$qwinsta = qwinsta 2>&1
+		if( $LASTEXITCODE -eq 0 ){
+			return $qwinsta | foreach {
+				if ($_ -NotMatch "services|console" -and $_ -match "Disc|Active|Acti|Déco") {
+					$session = $($_ -Replace ' {2,}', ',').split(',')
+					$ColumnsList | select HostName,@{n="User";e={$session[1]}}, @{n="SessionID";e={$session[2]}}, @{n="Status";e={$session[3]}},Error
+				}
 			}
 		}
 	}
@@ -482,9 +505,10 @@ $param = @{
 	Name="List Firewall rules";
 	Output="FireWallRules";
 	ErrorMessage=">Get-NetFirewallRule< not supported";
-	ErrorColumn="DisplayName";
+	ColumnsList=1 | Select DisplayName,Direction,DisplayGroup,Profile,Action,PolicyStoreSourceType,PolicyStoreSource,Protocol,LocalPort,RemotePort,RemoteAddress;
 	InlineCode={
-		return Get-NetFirewallRule -ErrorAction Stop -PolicyStore ActiveStore | where {$_.Enabled -eq $true } | sort Direction,Action | Select @{n="HostName";e={$env:computername}},DisplayName,Direction,DisplayGroup,Profile,Action,PolicyStoreSourceType,PolicyStoreSource,
+		param($ColumnsList)
+		return Get-NetFirewallRule -ErrorAction Stop -PolicyStore ActiveStore | where {$_.Enabled -eq $true } | sort Direction,Action | Select DisplayName,Direction,DisplayGroup,Profile,Action,PolicyStoreSourceType,PolicyStoreSource,
 			@{Name='Protocol';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).Protocol}},
 			@{Name='LocalPort';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).LocalPort}},
 			@{Name='RemotePort';Expression={($PSItem | Get-NetFirewallPortFilter -PolicyStore ActiveStore).RemotePort}},
@@ -500,9 +524,10 @@ $param = @{
 	Name="List Firewall Profiles";
 	Output="FireWallStatus";
 	ErrorMessage=">Get-NetFirewallProfile< not supported";
-	ErrorColumn="Name";
+	ColumnsList=1 | Select Name,Profile,Enabled,DefaultInboundAction,DefaultOutboundAction,AllowInboundRules,AllowLocalFirewallRules,AllowLocalIPsecRules,AllowUserApps,AllowUserPorts,AllowUnicastResponseToMulticast,NotifyOnListen,EnableStealthModeForIPsec,LogMaxSizeKilobytes,LogAllowed,LogBlocked,LogIgnored,Caption,Description,ElementName,InstanceID,DisabledInterfaceAliases,LogFileName;
 	InlineCode={
-		return Get-NetFirewallProfile -ErrorAction Stop | select @{n="HostName";e={$env:computername}},Name,Profile,Enabled,DefaultInboundAction,DefaultOutboundAction,AllowInboundRules,AllowLocalFirewallRules,AllowLocalIPsecRules,AllowUserApps,AllowUserPorts,AllowUnicastResponseToMulticast,NotifyOnListen,EnableStealthModeForIPsec,LogMaxSizeKilobytes,LogAllowed,LogBlocked,LogIgnored,Caption,Description,ElementName,InstanceID,@{n="DisabledInterfaceAliases";e={$_.DisabledInterfaceAliases -join ','}},LogFileName
+		param($ColumnsList)
+		return Get-NetFirewallProfile -ErrorAction Stop | select Name,Profile,Enabled,DefaultInboundAction,DefaultOutboundAction,AllowInboundRules,AllowLocalFirewallRules,AllowLocalIPsecRules,AllowUserApps,AllowUserPorts,AllowUnicastResponseToMulticast,NotifyOnListen,EnableStealthModeForIPsec,LogMaxSizeKilobytes,LogAllowed,LogBlocked,LogIgnored,Caption,Description,ElementName,InstanceID,@{n="DisabledInterfaceAliases";e={$_.DisabledInterfaceAliases -join ','}},LogFileName
 	}
 }
 runTest @param
@@ -514,11 +539,11 @@ $param = @{
 	Name="List Process";
 	Output="Process";
 	ErrorMessage=">Get-Process< not supported";
-	ErrorColumn="OwnerDomain";
+	ColumnsList=1 | Select OwnerDomain,Owner,UserSID,IsLocalUser,ProcessId,CommandLine,Description,Name,SessionId,CreationDate;
 	InlineCode={
 		try{
-			return Get-Process -IncludeUserName -ErrorAction Stop | Select @{n="HostName";e={$env:computername}},
-				@{n="OwnerDomain";e={try{$_.UserName.split('\')[0]}catch{$_.UserName}}},
+			param($ColumnsList)
+			return Get-Process -IncludeUserName -ErrorAction Stop | Select @{n="OwnerDomain";e={try{$_.UserName.split('\')[0]}catch{$_.UserName}}},
 				@{n="Owner";e={try{$_.UserName.split('\')[1]}catch{$_.UserName}}},
 				@{n="UserSID";e={try{(New-Object Security.Principal.NTAccount($_.UserName)).Translate([Security.Principal.SecurityIdentifier]).Value}catch{'S-0-0-0'}}},
 				IsLocalUser,
@@ -527,13 +552,12 @@ $param = @{
 				@{n="Description";e={$_.Description}},
 				@{n="Name";e={$_.Name}},
 				@{n="SessionId";e={$_.SessionId}},
-				@{n="CreationDate";e={$_.StartTime}} | Select HostName,OwnerDomain,Owner,UserSID,@{n="IsLocalUser";e={($_.UserSID.Length -le 12) -or ($_.OwnerDomain -eq $_.HostName)}},ProcessId,CommandLine,Description,Name,SessionId,CreationDate
+				@{n="CreationDate";e={$_.StartTime}} | Select OwnerDomain,Owner,UserSID,@{n="IsLocalUser";e={($_.UserSID.Length -le 12) -or ($_.OwnerDomain -eq $env:computername)}},ProcessId,CommandLine,Description,Name,SessionId,CreationDate
 		}catch{
 			logMsg -EntryType Error -Event 4 -Message "List Process - Unable to run >Get-Process -IncludeUserName< | Err: $($_.Exception.Message) | Using failover with WMI"
 			
 			return Get-WmiObject Win32_Process -ErrorAction Stop | %{
-				$row = $_ | Select @{n="HostName";e={$env:computername}},
-					OwnerDomain,
+				$row = $_ | Select OwnerDomain,
 					Owner,
 					UserSID,
 					IsLocalUser,
@@ -550,7 +574,7 @@ $param = @{
 					$row.UserSID = (New-Object Security.Principal.NTAccount($u.Domain,$u.User)).Translate([Security.Principal.SecurityIdentifier]).Value
 				} catch {}
 				$row
-			} | Select HostName,OwnerDomain,Owner,UserSID,@{n="IsLocalUser";e={($_.UserSID.Length -le 12) -or ($_.OwnerDomain -eq $_.HostName)}},ProcessId,CommandLine,Description,Name,SessionId,CreationDate
+			} | Select OwnerDomain,Owner,UserSID,@{n="IsLocalUser";e={($_.UserSID.Length -le 12) -or ($_.OwnerDomain -eq $env:computername)}},ProcessId,CommandLine,Description,Name,SessionId,CreationDate
 		}
 	}
 }
@@ -561,12 +585,13 @@ runTest @param
 # List Firewall Profiles
 $param = @{
 	Name="List local share";
-	Output="SmbShare";
+	Output="SmbShares";
 	ErrorMessage=">Get-SmbShare< not supported";
-	ErrorColumn="Name";
+	ColumnsList=1 | Select Name,Path,Description,CurrentUsers,CompressData,EncryptData,'Type',IdentityReference,FileSystemRights,AccessControlType;
 	InlineCode={
+		param($ColumnsList)
 		if( $(Get-Service lanmanserver).Status -eq 'Stopped' ) {
-			return echo 1 | select @{n="HostName";e={$env:computername}},@{n="Name";e={"Service Stopped"}}
+			return @($ColumnsList | Select * | %{ $_.Error="Service Stopped"; $_ })
 		}
 		$data = @()
 		Get-SmbShare -ErrorAction Stop | %{
@@ -574,13 +599,7 @@ $param = @{
 			try{
 				$cRow.PresetPathAcl.Access | %{
 					$acl = $_
-					$row = $cRow | select @{n="HostName";e={$env:computername}},
-						Name,
-						Path,
-						Description,
-						CurrentUsers,
-						CompressData,
-						EncryptData,
+					$row = $cRow | select Name,Path,Description,CurrentUsers,CompressData,EncryptData,
 						@{n="Type";e={"SMB ACL"}},
 						@{n="IdentityReference";e={$acl.IdentityReference}},
 						@{n="FileSystemRights";e={$acl.FileSystemRights}},
@@ -591,13 +610,7 @@ $param = @{
 			
 			try{
 				$acl = Get-Acl $cRow.Path
-				$row = $cRow | select @{n="HostName";e={$env:computername}},
-					Name,
-					Path,
-					Description,
-					CurrentUsers,
-					CompressData,
-					EncryptData,
+				$row = $cRow | select Name,Path,Description,CurrentUsers,CompressData,EncryptData,
 					@{n="Type";e={"PATH ACL"}},
 					@{n="IdentityReference";e={$acl.Owner}},
 					@{n="FileSystemRights";e={"Owner"}},
@@ -605,13 +618,7 @@ $param = @{
 				$data += @($row)
 				$acl | select -ExpandProperty Access | %{		
 					$pacl = $_
-					$row = $cRow | select @{n="HostName";e={$env:computername}},
-						Name,
-						Path,
-						Description,
-						CurrentUsers,
-						CompressData,
-						EncryptData,
+					$row = $cRow | select Name,Path,Description,CurrentUsers,CompressData,EncryptData,
 						@{n="Type";e={"PATH ACL"}},
 						@{n="IdentityReference";e={$pacl.IdentityReference}},
 						@{n="FileSystemRights";e={$pacl.FileSystemRights}},
@@ -643,12 +650,13 @@ $param = @{
 	Name="List local ip";
 	Output="IpConfig";
 	ErrorMessage=">Get-WmiObject Win32_NetworkAdapterConfiguration< not supported";
-	ErrorColumn="InterfaceIndex";
+	ColumnsList=1 | Select InterfaceIndex,MACAddress,IPAddress,IPSubnet,DefaultIPGateway,Description,DHCPEnabled,DHCPServer,DNSDomain,DNSServerSearchOrder,DNSDomainSuffixSearchOrder,DomainDNSRegistrationEnabled,TcpipNetbiosOptions,WINSPrimaryServer;
 	InlineCode={
+		param($ColumnsList)
 		return Get-WmiObject Win32_NetworkAdapterConfiguration -ErrorAction Stop | ?{ $_.IPEnabled -eq $true -and $_.IPAddress -ne $null -and $_.IPAddress.Count -ge 1 -and $_.IPAddress[0] -ne '' } | %{
-			$row = $_
+			$row = $_ | Select InterfaceIndex,MACAddress,IPAddress,IPSubnet,DefaultIPGateway,Description,DHCPEnabled,DHCPServer,DNSDomain,DNSServerSearchOrder,@{n="DNSDomainSuffixSearchOrder";e={$row.DNSDomainSuffixSearchOrder -join ","}},DomainDNSRegistrationEnabled,FullDNSRegistrationEnabled,TcpipNetbiosOptions,WINSPrimaryServer
 			for( $i=0; $i -lt $_.IPAddress.Count; $i++ ){
-				$ret = 1 | select @{n="HostName";e={$env:computername}},@{n="InterfaceIndex";e={$row.InterfaceIndex}},@{n="MACAddress";e={$row.MACAddress}},IPAddress,IPSubnet,DefaultIPGateway,@{n="Description";e={$row.Description}},@{n="DHCPEnabled";e={$row.DHCPEnabled}},@{n="DHCPServer";e={$row.DHCPServer}},@{n="DNSDomain";e={$row.DNSDomain}},@{n="DNSServerSearchOrder";e={$row.DNSServerSearchOrder}},@{n="DNSDomainSuffixSearchOrder";e={$row.DNSDomainSuffixSearchOrder -join ","}},@{n="DomainDNSRegistrationEnabled";e={$row.DomainDNSRegistrationEnabled}},@{n="FullDNSRegistrationEnabled";e={$row.FullDNSRegistrationEnabled}},@{n="TcpipNetbiosOptions";e={$row.TcpipNetbiosOptions}},@{n="WINSPrimaryServer";e={$row.WINSPrimaryServer}}
+				$ret = $row | Select *
 				$ret.IPAddress = $_.IPAddress[$i]
 				if( -not $ret.IPAddress.StartsWith('fe80::') ){
 					$ret.IPSubnet = $_.IPSubnet[$i]
@@ -670,12 +678,10 @@ $param = @{
 	Name="List local Services";
 	Output="Services";
 	ErrorMessage=">Get-WmiObject Win32_Service< not supported";
-	ErrorColumn="DisplayName";
+	ColumnsList=1 | Select DisplayName,Name,State,UserName,InstallDate,Started,Status,ProcessId,PathName;
 	InlineCode={
-		return Get-WmiObject -ErrorAction Stop Win32_Service | %{
-			$row = $_
-			echo 1 | select @{n="HostName";e={$env:computername}},@{n="DisplayName";e={$row.DisplayName}},@{n="Name";e={$row.Name}},@{n="State";e={$row.State}},@{n="UserName";e={$row.StartName}},@{n="InstallDate";e={$row.InstallDate}},@{n="Started";e={$row.Started}},@{n="Status";e={$row.Status}},@{n="ProcessId";e={$row.ProcessId}},@{n="PathName";e={$row.PathName}}
-		}
+		param($ColumnsList)
+		return Get-WmiObject -ErrorAction Stop Win32_Service | Select DisplayName,Name,State,@{n="UserName";e={$row.StartName}},InstallDate,Started,Status,ProcessId,PathName
 	}
 }
 runTest @param
@@ -694,10 +700,15 @@ $param = @{
 	Name="List SecEdit";
 	Output="SecEdit";
 	ErrorMessage=">SecEdit< not supported";
-	ErrorColumn="Category";
+	ColumnsList=1 | Select Category,Key,Value;
 	InlineCode={
+		param($ColumnsList)
 		$tmp = "$($env:TMP)\$([guid]::NewGuid().ToString())"
-		SecEdit.exe /export /cfg $tmp >$null 2>&1
+		$err=SecEdit.exe /export /cfg $tmp 2>&1
+		if( $LASTEXITCODE -ne 0 ){
+			$err = $err -join '. '
+			return @($ColumnsList | Select * | %{ $_.Error="Unable to run SecEdit.exe /export /cfg $tmp | Got error: $err"; $_ });
+		}
 		$lastType = ''
 		$secedit = cat $tmp | % {
 			if( $_.startswith('[') ){
@@ -705,7 +716,11 @@ $param = @{
 			}else{
 				if( $lastType -ne '[Unicode]' -and $lastType -ne '[Version]' ){
 					$tmprow = $_.replace(' = ',';').replace('=',';').split(';')
-					return echo 1 | select @{n="HostName";e={$env:computername}},@{n="Category";e={$lastType}},@{n="Key";e={$tmprow[0].trim('"')}},@{n="Value";e={$tmprow[1].trim('"')}}
+					$ret = $ColumnsList | Select *
+					$ret.Category = $lastType
+					$ret.Key = $tmprow[0].trim('"')
+					$ret.Value = $tmprow[1].trim('"')
+					return $ret
 				}
 			}
 		}
@@ -735,7 +750,7 @@ $param = @{
 		$secedit | ?{ $_.Category -eq '[Privilege Rights]' } | %{
 			$priv = $_
 			$_.Value.split(',') | % {
-				$row = $priv | select HostName,Category,Key,Value;
+				$row = $priv | Select *;
 				$row.Value = $_
 				if( $_[0] -eq '*' ){
 					try {
@@ -774,7 +789,7 @@ $param = @{
 	Name="List LSA error from the last 24h";
 	Output="Events-Microsoft-Windows-CodeIntegrity_$((Get-Date).ToString('yyyyMMddHHmmss'))";
 	ErrorMessage=">Get-WinEvent< not supported";
-	ErrorColumn="TimeCreated";
+	ColumnsList=1 | Select TimeCreated,Id,UserId,LevelDisplayName,FileNameBuffer,ProcessNameBuffer,Message;
 	InlineCode={
 		# Require !
 		# reg.exe add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\LSASS.exe" /v "AuditLevel" /d 8 /t REG_DWORD /F
@@ -787,16 +802,12 @@ $param = @{
 			</Query>
 		</QueryList>
 '@
-		try{
-			return Get-WinEvent -FilterXml $FilterXml -ErrorAction Stop | % {
-				$ret = $_ | Select @{n="HostName";e={$env:computername}},TimeCreated,Id,UserId,LevelDisplayName,FileNameBuffer,ProcessNameBuffer,Message
-				$xml = [xml]$x[0].toXML()
-				$ret.FileNameBuffer = ($xml.Event.EventData.Data | ?{ $_.Name -eq 'FileNameBuffer' }).'#text'
-				$ret.ProcessNameBuffer = ($xml.Event.EventData.Data | ?{ $_.Name -eq 'ProcessNameBuffer' }).'#text'
-				$ret
-			}
-		}catch{
-			return echo 1 | Select @{n="HostName";e={$env:computername}},TimeCreated,Id,UserId,LevelDisplayName,FileNameBuffer,ProcessNameBuffer,@{n="Message";e={"No Event in last 24h"}}
+		return Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-CodeIntegrity/Operational'; Id=3065,3066,3033,3063; StartTime=(get-date).AddHours("-25") } -ErrorAction Stop | % {
+			$ret = $_ | Select TimeCreated,Id,UserId,LevelDisplayName,FileNameBuffer,ProcessNameBuffer,Message
+			$xml = [xml]$_.toXML()
+			$ret.FileNameBuffer = ($xml.Event.EventData.Data | ?{ $_.Name -eq 'FileNameBuffer' }).'#text'
+			$ret.ProcessNameBuffer = ($xml.Event.EventData.Data | ?{ $_.Name -eq 'ProcessNameBuffer' }).'#text'
+			$ret
 		}
 	}
 }
@@ -805,11 +816,12 @@ runTest @param
 
 ###############################################################################
 # List NTLMv1 auth recived from the last 24h
+<#
 $param = @{
 	Name="List NTLMv1 auth recived from the last 24h";
 	Output="Events-NTLMv1_$((Get-Date).ToString('yyyyMMddHHmmss'))";
 	ErrorMessage=">Get-WinEvent< not supported";
-	ErrorColumn="TimeCreated";
+	ColumnsList=1 | Select TimeCreated,Message,SubjectUserSid,SubjectLogonId,AuthenticationPackageName,TargetOutboundUserName,ImpersonationLevel,LogonProcessName,TargetDomainName,IpPort,IpAddress,LmPackageName,SubjectDomainName,ProcessName,TransmittedServices,ProcessId,SubjectUserName,TargetOutboundDomainName,TargetLogonId,TargetUserName,RestrictedAdminMode,LogonGuid,LogonType,TargetLinkedLogonId,VirtualAccount,TargetUserSid,ElevatedToken;
 	InlineCode={
 		$FilterXml = @'
 			<QueryList>
@@ -822,17 +834,36 @@ $param = @{
 				</Query>
 			</QueryList>
 '@
-		try{
-			return Get-WinEvent -FilterXml $FilterXml -ErrorAction Stop | % {
-				$h = @{}
-				([xml]$_.Toxml()).Event.EventData.Data | ForEach-Object {
-					$h.Add($_.'Name',$_.'#text')
-				}
-				[PSCustomObject]$h
+		return Get-WinEvent -FilterXml $FilterXml -ErrorAction Stop | % {
+			$h = @{}
+			$h.Add("TimeCreated",$_.TimeCreated)
+			([xml]$_.Toxml()).Event.EventData.Data | ForEach-Object {
+				$h.Add($_.'Name',$_.'#text')
 			}
-		}catch{
-			return echo 1 | Select @{n="HostName";e={$env:computername}},@{n="Message";e={"No Event in last 24h"}}
-		}
+			[PSCustomObject]$h
+		} | Select TimeCreated,Message,SubjectUserSid,SubjectLogonId,AuthenticationPackageName,TargetOutboundUserName,ImpersonationLevel,LogonProcessName,TargetDomainName,IpPort,IpAddress,LmPackageName,SubjectDomainName,ProcessName,TransmittedServices,ProcessId,SubjectUserName,TargetOutboundDomainName,TargetLogonId,TargetUserName,RestrictedAdminMode,LogonGuid,LogonType,TargetLinkedLogonId,VirtualAccount,TargetUserSid,ElevatedToken
+	}
+}
+runTest @param
+#>
+
+
+###############################################################################
+# List auth recived from the last 24h
+$param = @{
+	Name="List auth recived from the last 24h";
+	Output="Events-Auth_$((Get-Date).ToString('yyyyMMddHHmmss'))";
+	ErrorMessage=">Get-WinEvent< not supported";
+	ColumnsList=1 | Select TimeCreated,Message,SubjectUserSid,SubjectLogonId,AuthenticationPackageName,TargetOutboundUserName,ImpersonationLevel,LogonProcessName,TargetDomainName,IpPort,IpAddress,LmPackageName,SubjectDomainName,ProcessName,TransmittedServices,ProcessId,SubjectUserName,TargetOutboundDomainName,TargetLogonId,TargetUserName,RestrictedAdminMode,LogonGuid,LogonType,TargetLinkedLogonId,VirtualAccount,TargetUserSid,ElevatedToken;
+	InlineCode={
+		return Get-WinEvent -FilterHashtable @{ LogName = 'Security'; Id=4624; StartTime=(get-date).AddHours("-25") } -ErrorAction Stop | % {
+			$h = @{}
+			$h.Add("TimeCreated",$_.TimeCreated)
+			([xml]$_.Toxml()).Event.EventData.Data | ForEach-Object {
+				$h.Add($_.'Name',$_.'#text')
+			}
+			[PSCustomObject]$h
+		} | Select TimeCreated,Message,SubjectUserSid,SubjectLogonId,AuthenticationPackageName,TargetOutboundUserName,ImpersonationLevel,LogonProcessName,TargetDomainName,IpPort,IpAddress,LmPackageName,SubjectDomainName,ProcessName,TransmittedServices,ProcessId,SubjectUserName,TargetOutboundDomainName,TargetLogonId,TargetUserName,RestrictedAdminMode,LogonGuid,LogonType,TargetLinkedLogonId,VirtualAccount,TargetUserSid,ElevatedToken
 	}
 }
 runTest @param
@@ -845,33 +876,31 @@ $param = @{
 	Name="List outgoing NTLM authentication traffic that would be blocked from the last 24h";
 	Output="Events-NTLM-Out_$((Get-Date).ToString('yyyyMMddHHmmss'))";
 	ErrorMessage=">Get-WinEvent< not supported";
-	ErrorColumn="TimeCreated";
+	ColumnsList=1 | Select TimeCreated,TargetName,Direction,ProcessId,ProcessName,Identity;
 	InlineCode={
-		try{
-			return Get-WinEvent -ErrorAction Stop -FilterHashtable @{ LogName = 'Microsoft-Windows-NTLM/Operational'; Id=8001,8002; StartTime=(get-date).AddHours("-24") } | %{
-				$e = $_
-				switch ($e.Id) {
-					8001 {
-						$Direction = 'Out'
-						$TargetName = $e.Properties[0].Value ;
-						$ProcessID = $e.Properties[3].Value 
-						$ProcessName = $e.Properties[4].Value ;
-						$Identity =  "$($e.Properties[2].Value)\$($e.Properties[1].Value)"
-						break
-					}
-					8002 {
-						$Direction = 'In'
-						$TargetName = $env:COMPUTERNAME
-						$ProcessID = $e.Properties[0].Value 
-						$ProcessName = $e.Properties[1].Value ;
-						$Identity =  "$($e.Properties[4].Value)\$($e.Properties[3].Value)"
-					}
-					default {}
+		return Get-WinEvent -ErrorAction Stop -FilterHashtable @{ LogName = 'Microsoft-Windows-NTLM/Operational'; Id=8001,8002; StartTime=(get-date).AddHours("-25") } | %{
+			$row = $_
+			$ret = $_ | Select TimeCreated,TargetName,Direction,ProcessID,ProcessName,Identity
+			switch ($_.Id) {
+				8001 {
+					$ret.Direction   = 'Out'
+					$ret.TargetName  = $row.Properties[0].Value
+					$ret.ProcessID   = $row.Properties[3].Value
+					$ret.ProcessName = $row.Properties[4].Value
+					$ret.Identity    = "$($row.Properties[2].Value)\$($row.Properties[1].Value)"
+					break
 				}
-				$_ | Select @{n="HostName";e={$env:computername}},TimeCreated,@{n="TargetName";e={$TargetName}},@{n="Direction";e={$Direction}},@{n="ProcessId";e={$ProcessID}},@{n="ProcessName";e={$ProcessName}} ,@{n="Identity";e={$Identity}} 
+				8002 {
+					$ret.Direction   = 'In'
+					$ret.TargetName  = $env:COMPUTERNAME
+					$ret.ProcessID   = $row.Properties[0].Value 
+					$ret.ProcessName = $row.Properties[1].Value
+					$ret.Identity    ="$($row.Properties[4].Value)\$($row.Properties[3].Value)"
+					break
+				}
+				default {}
 			}
-		}catch{
-			return echo 1 | Select @{n="HostName";e={$env:computername}},@{n="TimeCreated";e={"No Event in last 24h"}}
+			return $ret
 		}
 	}
 }
@@ -884,17 +913,35 @@ $param = @{
 	Name="List SMBv1 connection in from the last 24h";
 	Output="Events-SMBv1-In_$((Get-Date).ToString('yyyyMMddHHmmss'))";
 	ErrorMessage=">Get-WinEvent< not supported";
-	ErrorColumn="TimeCreated";
+	ColumnsList=1 | Select TimeCreated,Message;
 	InlineCode={
+		param($ColumnsList)
+		# Require
+		# Set-SmbServerConfiguration -AuditSmb1Access $true
+		$ret = @()
+		if( $(Get-Service lanmanserver).Status -eq 'Stopped' ) {
+			return @($ColumnsList | Select * | %{ $_.Error="Service Stopped"; $_ })
+		}
 		try{
-			# Require
-			# Set-SmbServerConfiguration -AuditSmb1Access $true
-			return Get-WinEvent -ErrorAction Stop -FilterHashtable @{ LogName = 'Microsoft-Windows-SMBServer/Audit'; Id=3000; StartTime=(get-date).AddHours("-24") } | %{
-				$_ | Select @{n="HostName";e={$env:computername}},TimeCreated,Message
+			if( (Get-SmbServerConfiguration -ErrorAction Stop).AuditSmb1Access -eq $false ){
+				return @($ColumnsList | Select * | %{ $_.Error="AuditSmb1Access is disabled" ;$_})
 			}
 		}catch{
-			return echo 1 | Select @{n="HostName";e={$env:computername}},@{n="TimeCreated";e={"No Event in last 24h"}}
+			$ret += @($ColumnsList | Select * | %{ $_.Error="Unable to check if AuditSmb1Access is enabled" ;$_})
 		}
+		try{
+			$ret += Get-WinEvent -ErrorAction Stop -FilterHashtable @{ LogName = 'Microsoft-Windows-SMBServer/Audit'; Id=3000; StartTime=(get-date).AddHours("-24") } | %{
+				$row = $ColumnsList | Select *
+				$row.TimeCreated = $_.TimeCreated
+				$row.Message = $_.Message
+				return $row
+			}
+		}catch{
+			$err = "List SMBv1 connection in from the last 24h - >Get-WinEvent< not supported | Err: $($_.Exception.Message)"
+			logMsg -EntryType Error -Event 3 -Message $err
+			$ret += @($ColumnsList | Select * | %{ $_.Error=$err; $_ })
+		}
+		return $ret
 	}
 }
 runTest @param
@@ -906,9 +953,9 @@ $param = @{
 	Name="List local Software";
 	Output="Softwares";
 	ErrorMessage=">Get-ItemProperty< not supported";
-	ErrorColumn="DisplayName";
+	ColumnsList=1 | Select DisplayName,Version,DisplayVersion,InstallDate,InstallLocation;
 	InlineCode={
-		return Get-ItemProperty HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\* | select @{n="HostName";e={$env:computername}},DisplayName,Version,DisplayVersion,InstallDate,InstallLocation
+		return Get-ItemProperty -ErrorAction Stop HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\* | Select DisplayName,Version,DisplayVersion,InstallDate,InstallLocation
 	}
 }
 runTest @param
