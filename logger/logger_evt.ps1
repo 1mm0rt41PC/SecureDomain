@@ -37,6 +37,7 @@ $syslogStorage = 'C:\Windows\SYSVOL\domain\logs'
 $hostname = $env:COMPUTERNAME
 $delimiter = ','
 $date = (Get-Date).ToString('yyyyMMddHH')
+$hoursHistory = 2
 
 New-EventLog -LogName System -Source Logger2CSV -ErrorAction SilentlyContinue;
 
@@ -65,8 +66,8 @@ $xml = @'
 		</Query>
 	</QueryList>
 '@
-
-Get-WinEvent -FilterXml $xml  -ErrorAction SilentlyContinue | ForEach-Object {
+# Get-WinEvent -FilterXml $xml -ErrorAction SilentlyContinue
+Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{LogName='Security'; Id=4624; 'LmPackageName'='NTLM V1'; StartTime=(get-date).AddHours(-1*$hoursHistory)} | ForEach-Object {
 	$h = @{}
 	([xml]$_.Toxml()).Event.EventData.Data | ForEach-Object {
 		$h.Add($_.'Name',$_.'#text')
@@ -75,7 +76,8 @@ Get-WinEvent -FilterXml $xml  -ErrorAction SilentlyContinue | ForEach-Object {
 } | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\Events-NTLMv1_${hostname}_${date}.csv"
 
 
-Get-WinEvent -FilterHashtable @{Logname='Directory Service';Id=2889; StartTime=(get-date).AddHours("-12")} | %{
+###############################################################################
+Get-WinEvent -FilterHashtable @{Logname='Directory Service';Id=2889; StartTime=(get-date).AddHours(-1*$hoursHistory)} | %{
 	# Loop through each event and output the
 	$eventXML = [xml]$_.ToXml()
 	$Row = "" | select IPAddress,User,BindType
