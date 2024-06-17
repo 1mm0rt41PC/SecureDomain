@@ -1,6 +1,7 @@
 $syslogStorage = '\\DC-SRV01\syslog$'
 $syslogStorageTemp = 'C:\logs\tmp_log'
 $syslogStorageFinale = 'C:\logs\merge'
+$date = (Get-Date -Format "yyyyMMddHHmm")
 
 <#
 # Install
@@ -48,10 +49,10 @@ if( $work.Count -gt 0 ){
 		$tmp = $_.Name -Split '_'
 		$type = $tmp[0]
 		Write-Host "Working on $($_.Name)"
-		if( [System.IO.File]::Exists("$syslogStorageFinale\${type}.csv") ){
-			cat $_.FullName | Select-Object -Skip 1 | Out-File -Encoding UTF8 -Append "$syslogStorageFinale\${type}.csv"
+		if( [System.IO.File]::Exists("$syslogStorageFinale\${date}_${type}.csv") ){
+			cat $_.FullName | Select-Object -Skip 1 | Out-File -Encoding UTF8 -Append "$syslogStorageFinale\${date}_${type}.csv"
 		}else{
-			cat $_.FullName | Out-File -Encoding UTF8 -Append "$syslogStorageFinale\${type}.csv"
+			cat $_.FullName | Out-File -Encoding UTF8 -Append "$syslogStorageFinale\${date}_${type}.csv"
 		}
 	}
 }else{
