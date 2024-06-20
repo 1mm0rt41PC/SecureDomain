@@ -33,20 +33,25 @@ $acl.SetAccessRule($fsar)
 $acl | Set-Acl $logs
 #>
 
-$syslogStorage = 'C:\Windows\SYSVOL\domain\logs'
-$hostname = $env:COMPUTERNAME
-$delimiter = ','
-$date = (Get-Date).ToString('yyyyMMddHH')
-$hoursHistory = 2
+$syslogStorage           = 'C:\Windows\SYSVOL\domain\logs'
+$hostname                = $env:COMPUTERNAME
+$delimiter               = ','
+$date                    = (Get-Date).ToString('yyyyMMddHH')
+$hoursHistory            = 2
+$maxLogPowershellHistory = (Get-Date).AddDays(-30)
+$logFolder               = 'C:\Windows\logs\logger'
+$log                     = "$logFolder\${date}_$([guid]::NewGuid().ToString()).txt"
+$modeTest                = $True
+
 
 New-EventLog -LogName System -Source Logger2CSV -ErrorAction SilentlyContinue;
 
+mkdir -Force $syslogStorage > $null
 $ErrorActionPreference = "Stop"
-$log = (New-TemporaryFile).FullName
 Start-Transcript -Path $log -Force 
 
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
-if( -not $scriptPath.StartsWith("\\") ){
+if( -not (Test-Path $syslogStorage) ){
 	$syslogStorage = '.\output_sample\per_computer'
 	mkdir -Force $syslogStorage > $null
 	Write-Host -ForegroundColor White -BackgroundColor DarkRed "Mode test => Reason: the script $($MyInvocation.MyCommand.Definition) is not on a shared folder"
@@ -78,7 +83,7 @@ Get-WinEvent -FilterXml $xml -ErrorAction SilentlyContinue | ForEach-Object {
 
 
 ###############################################################################
-Get-WinEvent -FilterHashtable @{Logname='Directory Service';Id=2889; StartTime=(get-date).AddHours(-1*$hoursHistory)} | %{
+Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{Logname='Directory Service';Id=2889; StartTime=(get-date).AddHours(-1*$hoursHistory)} | %{
 	# Loop through each event and output the
 	$eventXML = [xml]$_.ToXml()
 	$Row = "" | select IPAddress,User,BindType
@@ -94,7 +99,9 @@ Get-WinEvent -FilterHashtable @{Logname='Directory Service';Id=2889; StartTime=(
 } | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\Events-LDAP-Signing_${hostname}_${date}.csv"
 
 
+# Delete files older than the $maxLogPowershellHistory.
+Get-ChildItem -ErrorAction SilentlyContinue -Path $logFolder -Force | Where-Object { !$_.PSIsContainer -and $_.CreationTime -lt $maxLogPowershellHistory } | Remove-Item -ErrorAction Continue -Force
+
 # Log the activity
 Stop-Transcript > $null
 Write-EventLog -LogName System -Source Logger2CSV -EntryType Information -Event 1 -Message $(cat $log | Out-String)
-rm -force $log
