@@ -129,12 +129,12 @@ Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{Logname='Directory
 } | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\Events-LDAP-Signing_${hostname}_${date}.csv"
 
 
-# Récupérer les événements 4776 du journal des événements de sécurité
+# Get all 4776 to track authentification
 Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{LogName='Security'; ID=4776; StartTime=(get-date).AddHours(-1*$hoursHistory);} | %{
     $eventXML = [xml]$_.ToXml()
     $row = 1 | Select HostName,TimeCreated,Username,Workstation
-    $row.Workstation = $eventXML.Event.EventData.Data[0].'#text'
-    $row.Username = $eventXML.Event.EventData.Data[1].'#text'
+    $row.Workstation = ($eventXML.Event.EventData.ChildNodes | ?{$_.Name -eq 'Workstation'}).'#text'
+    $row.Username = ($eventXML.Event.EventData.ChildNodes | ?{$_.Name -eq 'TargetUserName'}).'#text'
     $row.TimeCreated = $_.TimeCreated
     $row.HostName = $hostname
     $row
