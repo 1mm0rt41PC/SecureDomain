@@ -80,12 +80,10 @@ try{
 
 Start-Transcript -Path $log -Force 
 
-$scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
 if( -not (Test-Path $syslogStorage) ){
 	$syslogStorage = '.\output_sample\per_computer'
 	mkdir -Force $syslogStorage > $null
-	Write-Host -ForegroundColor White -BackgroundColor DarkRed "Mode test => Reason: the script $($MyInvocation.MyCommand.Definition) is not on a shared folder"
-	Write-EventLog -LogName System -Source Logger2CSV -EntryType Warning -Event 2 -Message "Mode test => Reason: the script $($MyInvocation.MyCommand.Definition) is not on a shared folder"
+ 	logMsg -EntryType Warning -Event 2 -Message "Mode test => Reason: the script can not write into $syslogStorage"
 }
 Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Files storage: $syslogStorage\*_${hostname}.csv"
 
@@ -103,6 +101,7 @@ $xml = @'
 '@
 # Require Powershellv6 : https://learn.microsoft.com/fr-fr/powershell/scripting/samples/creating-get-winevent-queries-with-filterhashtable?view=powershell-7.4#code-try-3
 # Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{LogName='Security'; Id=4624; 'LmPackageName'='NTLM V1'; StartTime=(get-date).AddHours(-1*$hoursHistory)}
+Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Reading event 4624 for NTLMv1 auth"
 Get-WinEvent -FilterXml $xml -ErrorAction SilentlyContinue | ForEach-Object {
 	$h = @{}
 	([xml]$_.Toxml()).Event.EventData.Data | ForEach-Object {
@@ -113,6 +112,7 @@ Get-WinEvent -FilterXml $xml -ErrorAction SilentlyContinue | ForEach-Object {
 
 
 ###############################################################################
+Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Reading event 2889 for LDAP signing"
 Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{Logname='Directory Service';Id=2889; StartTime=(get-date).AddHours(-1*$hoursHistory)} | %{
 	# Loop through each event and output the
 	$eventXML = [xml]$_.ToXml()
@@ -129,7 +129,9 @@ Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{Logname='Directory
 } | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\Events-LDAP-Signing_${hostname}_${date}.csv"
 
 
+###############################################################################
 # Get all 4776 to track authentification
+Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Reading event 4776 for credz validation to track auth"
 Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{LogName='Security'; ID=4776; StartTime=(get-date).AddHours(-1*$hoursHistory);} | %{
     $eventXML = [xml]$_.ToXml()
     $row = 1 | Select HostName,TimeCreated,Username,Workstation
