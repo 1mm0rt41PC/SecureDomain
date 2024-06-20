@@ -137,6 +137,7 @@ Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{LogName='Security'
     $row.Username = $eventXML.Event.EventData.Data[1].'#text'
     $row.TimeCreated = $_.TimeCreated
     $row.HostName = $hostname
+    $row
 } | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\Events-Auth-4776_${hostname}_${date}.csv"
 
 
