@@ -45,7 +45,7 @@ $log                     = "$logFolder\${date}_$([guid]::NewGuid().ToString()).t
 
 New-EventLog -LogName System -Source Logger2CSV -ErrorAction SilentlyContinue;
 
-mkdir -Force $syslogStorage > $null
+mkdir -Force $logFolder > $null
 $ErrorActionPreference = "Stop"
 Start-Transcript -Path $log -Force 
 
