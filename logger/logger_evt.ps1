@@ -40,13 +40,44 @@ $date                    = (Get-Date).ToString('yyyyMMddHH')
 $hoursHistory            = 2
 $maxLogPowershellHistory = (Get-Date).AddDays(-30)
 $logFolder               = 'C:\Windows\logs\logger'
-$log                     = "$logFolder\${date}_$([guid]::NewGuid().ToString()).txt"
+$ErrorActionPreference   = 'Stop'
 
 
 New-EventLog -LogName System -Source Logger2CSV -ErrorAction SilentlyContinue;
 
-mkdir -Force $logFolder > $null
-$ErrorActionPreference = "Stop"
+
+function logMsg
+{
+	Param
+	(
+		[Parameter(Mandatory=$true, Position=0)]
+		[int] $EventId,
+		
+		[Parameter(Mandatory=$true, Position=1)]
+		[ValidateSet('Error','Information','FailureAudit','SuccessAudit','Warning')]
+		[string[]] $EntryType,
+		
+		[Parameter(Mandatory=$true, Position=2)]
+		[string] $Message
+	)
+	Write-Host -ForegroundColor White -BackgroundColor DarkRed $Message
+	try{
+		Write-EventLog -ErrorAction Stop -LogName System -Source Logger2CSV -EntryType $EntryType -Event $EventId -Message $Message
+	}catch{}
+}
+
+
+try{
+	mkdir -ErrorAction Stop -force $logFolder
+	$log = "$logFolder\${date}_$([guid]::NewGuid().ToString()).txt"
+}catch{
+	logMsg -EventId 2 -EntryType Error -Message "Unable to create folder $logFolder"
+	$logFolder = "$($env:temp)\logger"
+	mkdir -ErrorAction Stop -force $logFolder
+	$log = "$logFolder\${date}_$([guid]::NewGuid().ToString()).txt"
+}
+
+
 Start-Transcript -Path $log -Force 
 
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
