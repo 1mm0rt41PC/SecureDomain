@@ -434,7 +434,8 @@ $param = @{
 	ColumnsList=1 | Select Name,SID,Caption,LocalAccount,Member;
 	InlineCode={
 		param($ColumnsList)
-		return Get-WmiObject win32_group -filter "Domain='$hostname'" -ErrorAction Stop | %{
+  		$ret = @()
+		Get-WmiObject win32_group -filter "Domain='$hostname'" -ErrorAction Stop | %{
 			$row = $ColumnsList | Select *
 			$row.Name = $_.Name
 			$row.SID = $_.SID
@@ -446,9 +447,10 @@ $param = @{
 				$dom = $tmp[1].Split('"')[1];
 				$name = $tmp[2].Split('"')[1];
 				$row.Member = $dom+"\"+$name
-				$row
+    				$ret += @($row | select *)
 			}
 		}
+  		return $ret
 	}
 }
 runTest @param
