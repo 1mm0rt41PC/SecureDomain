@@ -95,12 +95,14 @@ New-GPO -Name "[1mm0rt41][Audit] Syslog" | %{
 }
 #>
 
-$syslogStorage = '\\DC-SRV01-Example.corp.lo\syslog$'
-$hostname = $env:COMPUTERNAME
-$delimiter = ','
-$logFolder = 'C:\Windows\logs\logger'
-$ErrorActionPreference = 'Stop'
-
+$syslogStorage           = '\\DC-SRV01-Example.corp.lo\syslog$'
+$hostname                = $env:COMPUTERNAME
+$delimiter               = ','
+$date                    = (Get-Date).ToString('yyyyMMddHH')
+$logFolder               = 'C:\Windows\logs\logger'
+$maxLogPowershellHistory = (Get-Date).AddDays(-30)# This script log
+$hoursHistory            = 25# Windows EventLog
+$ErrorActionPreference   = 'Stop'
 
 
 New-EventLog -LogName System -Source Logger2CSV -ErrorAction SilentlyContinue;
@@ -129,12 +131,12 @@ function logMsg
 
 try{
 	mkdir -ErrorAction Stop -force $logFolder
-	$log = "$logFolder\$((get-date).ToString('yyyyMMddHms'))_$([guid]::NewGuid().ToString()).txt"
+	$log = "$logFolder\${date}_$([guid]::NewGuid().ToString()).txt"
 }catch{
 	Write-Host -ForegroundColor White -BackgroundColor DarkRed "Unable to create folder $logFolder"
 	$logFolder = "$($env:temp)\logger"
 	mkdir -ErrorAction Stop -force $logFolder
-	$log = "$logFolder\$((get-date).ToString('yyyyMMddHms'))_$([guid]::NewGuid().ToString()).txt"
+	$log = "$logFolder\${date}_$([guid]::NewGuid().ToString()).txt"
 }
 Start-Transcript -Path $log -Force
 
@@ -802,7 +804,7 @@ $param = @{
 			</Query>
 		</QueryList>
 '@
-		return Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-CodeIntegrity/Operational'; Id=3065,3066,3033,3063; StartTime=(get-date).AddHours("-25") } -ErrorAction Stop | % {
+		return Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-CodeIntegrity/Operational'; Id=3065,3066,3033,3063; StartTime=(get-date).AddHours(-1*$hoursHistory) } -ErrorAction Stop | % {
 			$ret = $_ | Select TimeCreated,Id,UserId,LevelDisplayName,FileNameBuffer,ProcessNameBuffer,Message
 			$xml = [xml]$_.toXML()
 			$ret.FileNameBuffer = ($xml.Event.EventData.Data | ?{ $_.Name -eq 'FileNameBuffer' }).'#text'
@@ -856,7 +858,7 @@ $param = @{
 	ErrorMessage=">Get-WinEvent< not supported";
 	ColumnsList=1 | Select TimeCreated,Message,SubjectUserSid,SubjectLogonId,AuthenticationPackageName,TargetOutboundUserName,ImpersonationLevel,LogonProcessName,TargetDomainName,IpPort,IpAddress,LmPackageName,SubjectDomainName,ProcessName,TransmittedServices,ProcessId,SubjectUserName,TargetOutboundDomainName,TargetLogonId,TargetUserName,RestrictedAdminMode,LogonGuid,LogonType,TargetLinkedLogonId,VirtualAccount,TargetUserSid,ElevatedToken;
 	InlineCode={
-		return Get-WinEvent -FilterHashtable @{ LogName = 'Security'; Id=4624; StartTime=(get-date).AddHours("-25") } -ErrorAction Stop | % {
+		return Get-WinEvent -FilterHashtable @{ LogName = 'Security'; Id=4624; StartTime=(get-date).AddHours(-1*$hoursHistory) } -ErrorAction Stop | % {
 			$h = @{}
 			$h.Add("TimeCreated",$_.TimeCreated)
 			([xml]$_.Toxml()).Event.EventData.Data | ForEach-Object {
@@ -878,7 +880,7 @@ $param = @{
 	ErrorMessage=">Get-WinEvent< not supported";
 	ColumnsList=1 | Select TimeCreated,TargetName,Direction,ProcessId,ProcessName,Identity;
 	InlineCode={
-		return Get-WinEvent -ErrorAction Stop -FilterHashtable @{ LogName = 'Microsoft-Windows-NTLM/Operational'; Id=8001,8002; StartTime=(get-date).AddHours("-25") } | %{
+		return Get-WinEvent -ErrorAction Stop -FilterHashtable @{ LogName = 'Microsoft-Windows-NTLM/Operational'; Id=8001,8002; StartTime=(get-date).AddHours(-1*$hoursHistory) } | %{
 			$row = $_
 			$ret = $_ | Select TimeCreated,TargetName,Direction,ProcessID,ProcessName,Identity
 			switch ($_.Id) {
@@ -930,7 +932,7 @@ $param = @{
 			$ret += @($ColumnsList | Select * | %{ $_.Error="Unable to check if AuditSmb1Access is enabled" ;$_})
 		}
 		try{
-			$ret += Get-WinEvent -ErrorAction Stop -FilterHashtable @{ LogName = 'Microsoft-Windows-SMBServer/Audit'; Id=3000; StartTime=(get-date).AddHours("-24") } | %{
+			$ret += Get-WinEvent -ErrorAction Stop -FilterHashtable @{ LogName = 'Microsoft-Windows-SMBServer/Audit'; Id=3000; StartTime=(get-date).AddHours(-1*$hoursHistory) } | %{
 				$row = $ColumnsList | Select *
 				$row.TimeCreated = $_.TimeCreated
 				$row.Message = $_.Message
@@ -961,6 +963,8 @@ $param = @{
 runTest @param
 
 
+# Delete files older than the $maxLogPowershellHistory.
+Get-ChildItem -ErrorAction SilentlyContinue -Path $logFolder -Force | Where-Object { !$_.PSIsContainer -and $_.CreationTime -lt $maxLogPowershellHistory } | Remove-Item -ErrorAction Continue -Force
 
 
 ###############################################################################
