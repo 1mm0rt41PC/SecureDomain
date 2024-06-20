@@ -829,13 +829,14 @@ $param = @{
 			<QueryList>
 				<Query Id="0" Path="security">
 					<Select Path="security">
-						*[System[(EventID=4624)] and TimeCreated[timediff(@SystemTime) &lt;= 86400000]]
+						*[System[(EventID=4624)] and TimeCreated[timediff(@SystemTime) &lt;= XXX_TIME_IN_SECONDS_XXX]]
 						and
 						 *[EventData[Data[@Name='LmPackageName']='NTLM V1']]
 					</Select>
 				</Query>
 			</QueryList>
 '@
+		$xml = $xml.Replace('XXX_TIME_IN_SECONDS_XXX', $hoursHistory*60*60*1000)
 		return Get-WinEvent -FilterXml $FilterXml -ErrorAction Stop | % {
 			$h = @{}
 			$h.Add("TimeCreated",$_.TimeCreated)
