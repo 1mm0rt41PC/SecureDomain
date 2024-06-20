@@ -427,7 +427,7 @@ runTest @param
 
 
 ###############################################################################
-# List local users
+# List local groups
 $param = @{
 	Name="List local group members";
 	Output="LocalGroups";
@@ -435,7 +435,7 @@ $param = @{
 	ColumnsList=1 | Select Name,SID,Caption,LocalAccount,Member;
 	InlineCode={
 		param($ColumnsList)
-  		$ret = @()
+		$ret = @()
 		Get-WmiObject win32_group -filter "Domain='$hostname'" -ErrorAction Stop | %{
 			$row = $ColumnsList | Select *
 			$row.Name = $_.Name
@@ -448,14 +448,14 @@ $param = @{
 				$dom = $tmp[1].Split('"')[1];
 				$name = $tmp[2].Split('"')[1];
 				$row.Member = $dom+"\"+$name
-    				$ret += @($row | select *)
+				$ret += @($row | select *)
 				$_
 			}
-   			if( $members.Count -eq 0 ){
+			if( $members.Count -eq 0 ){
 				$ret += @($row | select *)
-      			}
+			}
 		}
-  		return $ret
+		return $ret
 	}
 }
 runTest @param
