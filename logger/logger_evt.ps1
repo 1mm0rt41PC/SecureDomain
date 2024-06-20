@@ -41,7 +41,6 @@ $hoursHistory            = 2
 $maxLogPowershellHistory = (Get-Date).AddDays(-30)
 $logFolder               = 'C:\Windows\logs\logger'
 $log                     = "$logFolder\${date}_$([guid]::NewGuid().ToString()).txt"
-$modeTest                = $True
 
 
 New-EventLog -LogName System -Source Logger2CSV -ErrorAction SilentlyContinue;
