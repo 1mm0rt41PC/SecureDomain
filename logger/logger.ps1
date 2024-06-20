@@ -18,7 +18,7 @@
 # along with this program; see the file COPYING. If not, write to the
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
-# Update: 2024-06-20 - Fix err on LocalGroup collector
+# Update: 2024-06-20 - Fix err on LocalGroup collector | Fix test mode
 # Update: 2024-06-10 - Fix crash when non admin run
 # Update: 2024-06-07 - Fix SmbShare error
 # Update: 2024-06-07 - Fixed TPM rollback
@@ -141,11 +141,10 @@ try{
 }
 Start-Transcript -Path $log -Force
 
-$scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
-if( -not $scriptPath.Contains('\\') -or $syslogStorage -eq '\\DC-SRV01-Example.corp.lo\syslog$' ){
+if( -not $syslogStorage.Contains('\\') -or $syslogStorage -eq '\\DC-SRV01-Example.corp.lo\syslog$' ){
 	$syslogStorage = '.\output_sample\per_computer'
 	mkdir -Force $syslogStorage > $null
-	logMsg -EntryType Warning -Event 2 -Message "Mode test => Reason: the script $($MyInvocation.MyCommand.Definition) is not on a shared folder"
+	logMsg -EntryType Warning -Event 2 -Message "Mode test => Reason: the script `$syslogStorage is not configured to point on valid SMB Share"
 }
 Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Files storage: $syslogStorage\*_${hostname}.csv"
 
