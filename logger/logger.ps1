@@ -133,7 +133,7 @@ try{
 	mkdir -ErrorAction Stop -force $logFolder
 	$log = "$logFolder\${date}_$([guid]::NewGuid().ToString()).txt"
 }catch{
-	Write-Host -ForegroundColor White -BackgroundColor DarkRed "Unable to create folder $logFolder"
+	logMsg -EventId 2 -EntryType Error -Message "Unable to create folder $logFolder"
 	$logFolder = "$($env:temp)\logger"
 	mkdir -ErrorAction Stop -force $logFolder
 	$log = "$logFolder\${date}_$([guid]::NewGuid().ToString()).txt"
