@@ -442,14 +442,18 @@ $param = @{
 			$row.SID = $_.SID
 			$row.Caption = $_.Caption.Split('\')[1]
 			$row.LocalAccount = $_.LocalAccount
-			$row.Member = ''
-			$_.GetRelated("Win32_Account", "Win32_GroupUser", "", "", "PartComponent", "GroupComponent", $false, $null) | %{
+			$row.Member = '(Empty)'
+			$members = $_.GetRelated("Win32_Account", "Win32_GroupUser", "", "", "PartComponent", "GroupComponent", $false, $null) | %{
 				$tmp = $_.ToString().Split("=");
 				$dom = $tmp[1].Split('"')[1];
 				$name = $tmp[2].Split('"')[1];
 				$row.Member = $dom+"\"+$name
     				$ret += @($row | select *)
+				$_
 			}
+   			if( $members.Count -eq 0 ){
+				$ret += @($row | select *)
+      			}
 		}
   		return $ret
 	}
