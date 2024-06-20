@@ -116,7 +116,7 @@ Get-WinEvent -FilterXml $xml -ErrorAction SilentlyContinue | ForEach-Object {
 Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{Logname='Directory Service';Id=2889; StartTime=(get-date).AddHours(-1*$hoursHistory)} | %{
 	# Loop through each event and output the
 	$eventXML = [xml]$_.ToXml()
-	$Row = "" | select IPAddress,User,BindType
+	$Row = 1 | Select IPAddress,User,BindType
 	$Client = ($eventXML.event.EventData.Data[0])
 	$Row.IPAddress = $Client.SubString(0,$Client.LastIndexOf(":")) #Accomodates for IPV6 Addresses
 	$Row.User = $eventXML.event.EventData.Data[1]
@@ -127,6 +127,17 @@ Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{Logname='Directory
 	}
 	$Row
 } | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\Events-LDAP-Signing_${hostname}_${date}.csv"
+
+
+# Récupérer les événements 4776 du journal des événements de sécurité
+Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{LogName='Security'; ID=4776; StartTime=(get-date).AddHours(-1*$hoursHistory);} | %{
+    $eventXML = [xml]$_.ToXml()
+    $row = 1 | Select HostName,TimeCreated,Username,Workstation
+    $row.Workstation = $eventXML.Event.EventData.Data[0].'#text'
+    $row.Username = $eventXML.Event.EventData.Data[1].'#text'
+    $row.TimeCreated = $_.TimeCreated
+    $row.HostName = $hostname
+} | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\Events-Auth-4776_${hostname}_${date}.csv"
 
 
 # Delete files older than the $maxLogPowershellHistory.
