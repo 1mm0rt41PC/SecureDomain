@@ -92,13 +92,14 @@ $xml = @'
 	<QueryList>
 		<Query Id="0" Path="security">
 			<Select Path="security">
-				*[System[(EventID=4624)]]
+				*[System[(EventID=4624) and TimeCreated[timediff(@SystemTime) &lt;= XXX_TIME_IN_SECONDS_XXX]]]
 				and
 				 *[EventData[Data[@Name='LmPackageName']='NTLM V1']]
 			</Select>
 		</Query>
 	</QueryList>
 '@
+$xml = $xml.Replace('XXX_TIME_IN_SECONDS_XXX', $hoursHistory*60*60*1000)
 # Require Powershellv6 : https://learn.microsoft.com/fr-fr/powershell/scripting/samples/creating-get-winevent-queries-with-filterhashtable?view=powershell-7.4#code-try-3
 # Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{LogName='Security'; Id=4624; 'LmPackageName'='NTLM V1'; StartTime=(get-date).AddHours(-1*$hoursHistory)}
 Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Reading event 4624 for NTLMv1 auth"
