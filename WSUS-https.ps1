@@ -54,11 +54,19 @@ if ($SearchResult.Count -eq 0) {
 	Write-Output "Installing updates..."
 	$updateInstaller = $updateSession.CreateUpdateInstaller()
 	$updateInstaller.Updates = $searchResult
-	$updateInstaller.Install()
+	$installationResult = $updateInstaller.Install()
+	if( $installationResult.ResultCode -eq 2 ){
+		Write-Host "Install with success"
+	}else{
+		Write-Host "Error on Install ..."
+		$installationResult | fl *
+	}
+ 
 	Write-Host "List of installed updates:"
 	$searchResult | %{
 		Write-Host "> $($_.Title) : IsInstalled=$($update.IsInstalled) / RebootRequired=$($_.RebootRequired)"
 	}
+
 }
 
 Get-WinEvent -FilterHashtable @{
