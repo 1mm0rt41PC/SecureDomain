@@ -4,5 +4,7 @@
 # - Click on the Security tab
 # - Change Login auditing from “failed logins only” to “Both failed and successful logins”
 # - Restart the service
+# 18453=Login Success
+# 18456=Login Fail
 
-Get-WinEvent -FilterHashtable @{ LogName='Application';	Id=18456 }
+Get-WinEvent -FilterHashtable @{ LogName='Application';	Id=18456,18453 }
