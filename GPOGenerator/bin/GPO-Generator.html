@@ -284,6 +284,23 @@ var gpoYamlRules={
                     "LocalPort": "@(5985,5986)"
                 }
             }
+        },
+        "WSUS - Configuration with HTTPS": {
+            "Comment": "WSUS configuration:\n- Force HTTPS\n\nIf disabled: Restore WSUS default configuration\n",
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate": {
+                    "WUServer": "String:https://xxxxx.corp.lo:8531",
+                    "WUStatusServer": "String:https://xxxxx.corp.lo:8531"
+                },
+                "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU": {
+                    "UseWUServer": "DWord:1",
+                    "NoAutoUpdate": "DWord:0",
+                    "AUOptions": "DWord:2",
+                    "ScheduledInstallDay": "DWord:0",
+                    "ScheduledInstallTime": "DWord:3"
+                }
+            }
         }
     },
     "Log": {
