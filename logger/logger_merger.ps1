@@ -85,9 +85,11 @@ if( $work.Count -gt 0 ){
 	Write-Host -ForegroundColor White -BackgroundColor DarkRed "No work todo... EXIT"
 }
 
+# Delete files older than the $maxLogPowershellHistory.
+Get-ChildItem -ErrorAction SilentlyContinue -Path $logFolder -Force | Where-Object { !$_.PSIsContainer -and $_.CreationTime -lt $maxLogPowershellHistory } | Remove-Item -ErrorAction Continue -Force
+
 # Log the activity
 Stop-Transcript > $null
-
 $logData = cat $log | Out-String
 $loop = [Math]::Ceiling($logData.Length / 32000)
 0..$loop | %{
@@ -97,6 +99,3 @@ $loop = [Math]::Ceiling($logData.Length / 32000)
 		Write-EventLog -LogName System -Source LoggerMerger -EntryType Information -Event 1 -Message $logData.SubString($_*32000, $size)
 	}
 }
-
-# Delete files older than the $maxLogPowershellHistory.
-Get-ChildItem -ErrorAction SilentlyContinue -Path $logFolder -Force | Where-Object { !$_.PSIsContainer -and $_.CreationTime -lt $maxLogPowershellHistory } | Remove-Item -ErrorAction Continue -Force
