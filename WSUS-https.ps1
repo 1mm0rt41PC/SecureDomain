@@ -54,8 +54,7 @@ if ($SearchResult.Count -eq 0) {
 	Write-Output "Installing updates..."
 	$updateInstaller = $updateSession.CreateUpdateInstaller()
 	$updateInstaller.Updates = $searchResult
-	$updateInstaller.Download()
-	$installationResult = $updateInstaller.Install()
+	$updateInstaller.Install()
 	Write-Host "List of installed updates:"
 	$searchResult | %{
 		Write-Host "> $($_.Title) : IsInstalled=$($update.IsInstalled) / RebootRequired=$($_.RebootRequired)"
