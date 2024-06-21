@@ -986,7 +986,7 @@ $loop = [Math]::Ceiling($logData.Length / 32000)
 	$size = if( $_*32000+32000 -gt $logData.Length ){ $logData.Length-($_*32000) }else{ 32000 }
 	if( $size -gt 0 ){
 		Write-Host "Writting Part $_"
-		Write-EventLog -LogName System -Source LoggerMerger -EntryType Information -Event 1 -Message $logData.SubString($_*32000, $size)
+		logMsg -EntryType Information -EventId 1 -Message $logData.SubString($_*32000, $size)
 	}
 }
 
