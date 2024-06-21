@@ -67,8 +67,6 @@ $EventLogName            = 'LoggerEvt2CSV'
 
 
 New-EventLog -LogName System -Source $EventLogName -ErrorAction SilentlyContinue;
-
-
 function logMsg
 {
 	Param
