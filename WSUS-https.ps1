@@ -22,6 +22,12 @@ $BaseCriteria = "IsInstalled=0 and IsHidden=0 and AutoSelectOnWebSites=1"
 $Searcher = New-Object -ComObject Microsoft.Update.Searcher
 $SearchResult = $Searcher.Search($Criteria).Updates
 $SearchResult.Count
+
+Get-WinEvent -FilterHashtable @{
+    LogName='Microsoft-Windows-WindowsUpdateClient/Operational'
+    Id=19;
+	StartTime=(get-date).AddHours(-1)
+} -MaxEvents 10
 #>
 New-GPO -Name "[1mm0rt41][Hardening](GPO,Computer) WSUS - Configuration with HTTPS" -Comment "##################################`r`n`r`nWSUS configuration:`r`n- Force HTTPS`r`n`r`nIf disabled: Restore WSUS default configuration" | %{
 	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" -ValueName "WUServer" -Value "https://xxxxx.corp.lo:8531" -Type String >$null
