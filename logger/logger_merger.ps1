@@ -2,6 +2,9 @@ $syslogStorage = '\\DC-SRV01\syslog$'
 $syslogStorageTemp = 'C:\logs\tmp_log'
 $syslogStorageFinale = 'C:\logs\merge'
 $date = (Get-Date -Format "yyyyMMddHHmm")
+$logFolder = "C:\Windows\logs\logger"
+$maxLogPowershellHistory = (Get-Date).AddDays(-30)
+$ErrorActionPreference = "Stop"
 
 <#
 # Install
@@ -18,21 +21,17 @@ Register-ScheduledTask -TaskName "$TaskName" -Trigger $trigger -User "S-1-5-18" 
 
 New-EventLog -LogName System -Source LoggerMerger -ErrorAction SilentlyContinue;
 
-$ErrorActionPreference = "Stop"
-$logFolder = "C:\Windows\logs\logger"
 mkdir -force $logFolder
 $log = "$logFolder\$((get-date).ToString('yyyyMMddHms'))_$([guid]::NewGuid().ToString()).txt"
 Start-Transcript -Path $log -Force
 
-
-$scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
-if( -not $scriptPath.Contains("\\") -and -not $MyInvocation.MyCommand.Definition.Contains("\\") ){
+if( $syslogStorage -eq '\\DC-SRV01\syslog$' -and -not (Test-Path $syslogStorage) ){
 	$syslogStorage = '.\output_sample\per_computer'
 	mkdir -Force $syslogStorage > $null
 	$syslogStorageFinale = '.\output_sample\merge'	
  	$syslogStorageTemp = '.\output_sample\tmp_log'
-	Write-Host -ForegroundColor White -BackgroundColor DarkRed "Mode test => Reason: the script $($MyInvocation.MyCommand.Definition) is not on a shared folder"
-	Write-EventLog -LogName System -Source LoggerMerger -EntryType Warning -Event 2 -Message "Mode test => Reason: the script $($MyInvocation.MyCommand.Definition) is not on a shared folder"
+	Write-Host -ForegroundColor White -BackgroundColor DarkRed "Mode test => Reason: the script not configured"
+	Write-EventLog -LogName System -Source LoggerMerger -EntryType Warning -Event 2 -Message "Mode test => Reason: the script is not configured"
 }
 mkdir -Force $syslogStorageTemp > $null
 mkdir -Force $syslogStorageFinale > $null
@@ -40,7 +39,7 @@ mkdir -Force $syslogStorageFinale > $null
 Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Files Source        : $syslogStorage"
 Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Files Merging output: $syslogStorageFinale"
 
-Move-Item -Force -Path "$syslogStorage\*.csv" -Destination "$syslogStorageTemp\"
+Move-Item -ErrorAction SilentlyContinue -Force -Path "$syslogStorage\*.csv" -Destination "$syslogStorageTemp\"
 $work = Get-Item -Path "$syslogStorageTemp\*.csv"
 
 if( $work.Count -gt 0 ){
@@ -73,5 +72,9 @@ $loop = [Math]::Ceiling($logData.Length / 32000)
 	}
 }
 
-$limit = (Get-Date).AddDays(-15)
-Get-ChildItem -Path $logFolder -Force | Where-Object { !$_.PSIsContainer -and $_.CreationTime -lt $limit } | Remove-Item -Force
+# Delete files older than the $maxLogPowershellHistory.
+Get-ChildItem -ErrorAction SilentlyContinue -Path $logFolder -Force | Where-Object { !$_.PSIsContainer -and $_.CreationTime -lt $maxLogPowershellHistory } | Remove-Item -ErrorAction Continue -Force
+
+# Log the activity
+Stop-Transcript > $null
+Write-EventLog -LogName System -Source Logger2CSV -EntryType Information -Event 1 -Message $(cat $log | Out-String)
