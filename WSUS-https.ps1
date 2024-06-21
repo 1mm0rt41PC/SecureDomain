@@ -36,8 +36,7 @@ if ($SearchResult.Count -eq 0) {
 }
 
 Get-WinEvent -FilterHashtable @{
-    LogName='Microsoft-Windows-WindowsUpdateClient/Operational'
-    Id=19;
+	LogName='Microsoft-Windows-WindowsUpdateClient/Operational'
 	StartTime=(get-date).AddHours(-1)
 } -MaxEvents 10
 #>
