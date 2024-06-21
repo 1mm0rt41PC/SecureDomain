@@ -18,14 +18,26 @@ wuauclt /reportnow
 usoclient StartScan
 wuauclt /updatenow
 
-$BaseCriteria = "IsInstalled=0 and IsHidden=0 and AutoSelectOnWebSites=1"
+$BaseCriteria = "IsInstalled=0"
 $Searcher = New-Object -ComObject Microsoft.Update.Searcher
 $SearchResult = $Searcher.Search($Criteria).Updates
-$SearchResult.Count
+
+# Afficher les résultats de la recherche
+if ($SearchResult.Count -eq 0) {
+	Write-Output "No update found"
+} else {
+	Write-Output "Mises à jour disponibles trouvées :"
+	foreach ($Update in $SearchResult) {
+		Write-Output "Title : $($Update.Title)"
+		Write-Output "Description : $($Update.Description)"
+		Write-Output "Publication date: $($Update.LastDeploymentChangeTime)"
+		Write-Output "-----------------------------------------"
+	}
+}
 
 Get-WinEvent -FilterHashtable @{
-	LogName='Microsoft-Windows-WindowsUpdateClient/Operational'
-	Id=19;
+    LogName='Microsoft-Windows-WindowsUpdateClient/Operational'
+    Id=19;
 	StartTime=(get-date).AddHours(-1)
 } -MaxEvents 10
 #>
