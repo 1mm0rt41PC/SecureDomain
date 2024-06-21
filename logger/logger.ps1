@@ -548,8 +548,8 @@ $param = @{
 	ErrorMessage=">Get-Process< not supported";
 	ColumnsList=1 | Select OwnerDomain,Owner,UserSID,IsLocalUser,ProcessId,CommandLine,Description,Name,SessionId,CreationDate;
 	InlineCode={
-		try{
-			param($ColumnsList)
+ 		param($ColumnsList)
+		try{			
 			return Get-Process -IncludeUserName -ErrorAction Stop | Select @{n="OwnerDomain";e={try{$_.UserName.split('\')[0]}catch{$_.UserName}}},
 				@{n="Owner";e={try{$_.UserName.split('\')[1]}catch{$_.UserName}}},
 				@{n="UserSID";e={try{(New-Object Security.Principal.NTAccount($_.UserName)).Translate([Security.Principal.SecurityIdentifier]).Value}catch{'S-0-0-0'}}},
