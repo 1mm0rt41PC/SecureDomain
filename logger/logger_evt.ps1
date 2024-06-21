@@ -149,4 +149,12 @@ Get-ChildItem -ErrorAction SilentlyContinue -Path $logFolder -Force | Where-Obje
 
 # Log the activity
 Stop-Transcript > $null
-Write-EventLog -LogName System -Source Logger2CSV -EntryType Information -Event 1 -Message $(cat $log | Out-String)
+$logData = cat $log | Out-String
+$loop = [Math]::Ceiling($logData.Length / 32000)
+0..$loop | %{
+	$size = if( $_*32000+32000 -gt $logData.Length ){ $logData.Length-($_*32000) }else{ 32000 }
+	if( $size -gt 0 ){
+		Write-Host "Writting Part $_"
+		Write-EventLog -LogName System -Source LoggerMerger -EntryType Information -Event 1 -Message $logData.SubString($_*32000, $size)
+	}
+}
