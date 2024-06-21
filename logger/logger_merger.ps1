@@ -29,13 +29,14 @@ $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
 if( -not $scriptPath.Contains("\\") -and -not $MyInvocation.MyCommand.Definition.Contains("\\") ){
 	$syslogStorage = '.\output_sample\per_computer'
 	mkdir -Force $syslogStorage > $null
-	$syslogStorageFinale = '.\output_sample\merge'
-	mkdir -Force $syslogStorageFinale > $null
+	$syslogStorageFinale = '.\output_sample\merge'	
  	$syslogStorageTemp = '.\output_sample\tmp_log'
-  	mkdir -Force $syslogStorageTemp > $null
 	Write-Host -ForegroundColor White -BackgroundColor DarkRed "Mode test => Reason: the script $($MyInvocation.MyCommand.Definition) is not on a shared folder"
 	Write-EventLog -LogName System -Source LoggerMerger -EntryType Warning -Event 2 -Message "Mode test => Reason: the script $($MyInvocation.MyCommand.Definition) is not on a shared folder"
 }
+mkdir -Force $syslogStorageTemp > $null
+mkdir -Force $syslogStorageFinale > $null
+
 Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Files Source        : $syslogStorage"
 Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Files Merging output: $syslogStorageFinale"
 
