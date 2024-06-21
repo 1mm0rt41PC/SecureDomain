@@ -13,6 +13,8 @@ Stop-Service -ErrorAction Continue  bits -Force
 Stop-Service -ErrorAction Continue  msiserver -Force
 rm -Force -Recurse C:\Windows\SoftwareDistribution
 rm -Force -Recurse C:\Windows\System32\catroot2
+sfc /scannow
+DISM /Online /Cleanup-Image /RestoreHealth
 Start-Service 'Windows Update'
 net start wuauserv
 net start cryptSvc
@@ -37,6 +39,26 @@ if ($SearchResult.Count -eq 0) {
 		Write-Output "Description : $($Update.Description)"
 		Write-Output "Publication date: $($Update.LastDeploymentChangeTime)"
 		Write-Output "-----------------------------------------"
+	}
+	$updateSession = new-object -com "Microsoft.Update.Session"
+	
+	Write-Host "Downloading updates..."
+	$downloader = $updateSession.CreateUpdateDownloader() 
+	$downloader.Updates = $searchResult
+	$downloader.Download()
+	Write-Host "List of downloaded updates:"
+	$searchResult | %{
+		Write-Host "> $($_.Title) : IsDownloaded=$($update.IsDownloaded)"
+	}
+	
+	Write-Output "Installing updates..."
+	$updateInstaller = $updateSession.CreateUpdateInstaller()
+	$updateInstaller.Updates = $searchResult
+	$updateInstaller.Download()
+	$installationResult = $updateInstaller.Install()
+	Write-Host "List of installed updates:"
+	$searchResult | %{
+		Write-Host "> $($_.Title) : IsInstalled=$($update.IsInstalled) / RebootRequired=$($_.RebootRequired)"
 	}
 }
 
