@@ -20,9 +20,35 @@ Register-ScheduledTask -TaskName "$TaskName" -Trigger $trigger -User "S-1-5-18" 
 #>
 
 New-EventLog -LogName System -Source LoggerMerger -ErrorAction SilentlyContinue;
+function logMsg
+{
+	Param
+	(
+		[Parameter(Mandatory=$true, Position=0)]
+		[int] $EventId,
+		
+		[Parameter(Mandatory=$true, Position=1)]
+		[ValidateSet('Error','Information','FailureAudit','SuccessAudit','Warning')]
+		[string[]] $EntryType,
+		
+		[Parameter(Mandatory=$true, Position=2)]
+		[string] $Message
+	)
+	Write-Host -ForegroundColor White -BackgroundColor DarkRed $Message
+	try{
+		Write-EventLog -ErrorAction Stop -LogName System -Source Logger2CSV -EntryType $EntryType -Event $EventId -Message $Message
+	}catch{}
+}
 
-mkdir -force $logFolder
-$log = "$logFolder\$((get-date).ToString('yyyyMMddHms'))_$([guid]::NewGuid().ToString()).txt"
+try{
+	mkdir -ErrorAction Stop -force $logFolder
+	$log = "$logFolder\${date}_$([guid]::NewGuid().ToString()).txt"
+}catch{
+	logMsg -EventId 2 -EntryType Error -Message "Unable to create folder $logFolder"
+	$logFolder = "$($env:temp)\logger"
+	mkdir -ErrorAction Stop -force $logFolder
+	$log = "$logFolder\${date}_$([guid]::NewGuid().ToString()).txt"
+}
 Start-Transcript -Path $log -Force
 
 if( $syslogStorage -eq '\\DC-SRV01\syslog$' -and -not (Test-Path $syslogStorage) ){
@@ -74,7 +100,3 @@ $loop = [Math]::Ceiling($logData.Length / 32000)
 
 # Delete files older than the $maxLogPowershellHistory.
 Get-ChildItem -ErrorAction SilentlyContinue -Path $logFolder -Force | Where-Object { !$_.PSIsContainer -and $_.CreationTime -lt $maxLogPowershellHistory } | Remove-Item -ErrorAction Continue -Force
-
-# Log the activity
-Stop-Transcript > $null
-Write-EventLog -LogName System -Source Logger2CSV -EntryType Information -Event 1 -Message $(cat $log | Out-String)
