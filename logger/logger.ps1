@@ -979,15 +979,6 @@ Get-ChildItem -ErrorAction SilentlyContinue -Path $logFolder -Force | Where-Obje
 
 # Log the activity
 Stop-Transcript > $null
-$logData = cat $log | Out-String
-$loop = [Math]::Ceiling($logData.Length / 32000)
-0..$loop | %{
-	$size = if( $_*32000+32000 -gt $logData.Length ){ $logData.Length-($_*32000) }else{ 32000 }
-	if( $size -gt 0 ){
-		Write-Host "Writting Part $_"
-		logMsg -EntryType Information -EventId 1 -Message $logData.SubString($_*32000, $size)
-	}
-}
 
 
 # Test if ALCs on destination are OK
