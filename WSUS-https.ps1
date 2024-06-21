@@ -13,8 +13,11 @@ Stop-Service -ErrorAction Continue  bits -Force
 Stop-Service -ErrorAction Continue  msiserver -Force
 rm -Force -Recurse C:\Windows\SoftwareDistribution
 rm -Force -Recurse C:\Windows\System32\catroot2
-Start-Service cryptSvc
 Start-Service 'Windows Update'
+net start wuauserv
+net start cryptSvc
+net start bits
+net start msiserver
 wuauclt /detectnow
 wuauclt /reportnow
 usoclient StartScan
