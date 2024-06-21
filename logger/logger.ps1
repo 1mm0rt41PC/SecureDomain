@@ -104,9 +104,10 @@ $logFolder               = 'C:\Windows\logs\logger'
 $maxLogPowershellHistory = (Get-Date).AddDays(-30)# This script log
 $hoursHistory            = 25# Windows EventLog
 $ErrorActionPreference   = 'Stop'
+$EventLogName            = 'Logger2CSV'
 
 
-New-EventLog -LogName System -Source Logger2CSV -ErrorAction SilentlyContinue;
+New-EventLog -LogName System -Source $EventLogName -ErrorAction SilentlyContinue;
 
 
 function logMsg
@@ -125,7 +126,7 @@ function logMsg
 	)
 	Write-Host -ForegroundColor White -BackgroundColor DarkRed $Message
 	try{
-		Write-EventLog -ErrorAction Stop -LogName System -Source Logger2CSV -EntryType $EntryType -Event $EventId -Message $Message
+		Write-EventLog -ErrorAction Stop -LogName System -Source $EventLogName -EntryType $EntryType -Event $EventId -Message $Message
 	}catch{}
 }
 
@@ -990,12 +991,6 @@ $loop = [Math]::Ceiling($logData.Length / 32000)
 	}
 }
 
-try{
-	Write-EventLog -ErrorAction Stop -LogName System -Source Logger2CSV -EntryType Information -Event 1 -Message $(cat $log | Out-String)
-}catch{}
-
-$limit = (Get-Date).AddDays(-15)
-Get-ChildItem -Path $logFolder -Force | Where-Object { !$_.PSIsContainer -and $_.CreationTime -lt $limit } | Remove-Item -Force
 
 # Test if ALCs on destination are OK
 try {
