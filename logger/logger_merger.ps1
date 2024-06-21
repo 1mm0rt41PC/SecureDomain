@@ -1,11 +1,25 @@
-$syslogStorage = '\\DC-SRV01\syslog$'
-$syslogStorageTemp = 'C:\logs\tmp_log'
-$syslogStorageFinale = 'C:\logs\merge'
-$date = (Get-Date -Format "yyyyMMddHHmm")
-$logFolder = "C:\Windows\logs\logger"
-$maxLogPowershellHistory = (Get-Date).AddDays(-30)
-$ErrorActionPreference = "Stop"
-
+<#
+# logger_merger.ps1 - A simple script that automates merge of csv
+#
+# Filename: logger_merger.ps1
+# Author: 1mm0rt41PC - immortal-pc.info - https://github.com/1mm0rt41PC
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; see the file COPYING. If not, write to the
+# Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+# Update: 2024-06-21 - Add auto cleanup
+#>
 <#
 # Install
 
@@ -16,8 +30,17 @@ $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-exec byp
 $trigger = New-ScheduledTaskTrigger -Daily -DaysInterval 1 -RandomDelay (New-TimeSpan -Minutes 30) -At "09:00:00"
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 15)
 Register-ScheduledTask -TaskName "$TaskName" -Trigger $trigger -User "S-1-5-18" -Action $action -RunLevel Highest -Settings $settings -Force
-
 #>
+
+$syslogStorage           = '\\DC-SRV01\syslog$'
+$syslogStorageTemp       = 'C:\logs\tmp_log'
+$syslogStorageFinale     = 'C:\logs\merge'
+$date                    = (Get-Date -Format "yyyyMMddHHmm")
+$logFolder               = "C:\Windows\logs\logger" # This script log
+$maxLogPowershellHistory = (Get-Date).AddDays(-30)# This script log
+$ErrorActionPreference   = 'Stop'
+
+
 
 New-EventLog -LogName System -Source LoggerMerger -ErrorAction SilentlyContinue;
 function logMsg
@@ -36,7 +59,7 @@ function logMsg
 	)
 	Write-Host -ForegroundColor White -BackgroundColor DarkRed $Message
 	try{
-		Write-EventLog -ErrorAction Stop -LogName System -Source Logger2CSV -EntryType $EntryType -Event $EventId -Message $Message
+		Write-EventLog -ErrorAction Stop -LogName System -Source LoggerMerger -EntryType $EntryType -Event $EventId -Message $Message
 	}catch{}
 }
 
@@ -56,8 +79,7 @@ if( $syslogStorage -eq '\\DC-SRV01\syslog$' -and -not (Test-Path $syslogStorage)
 	mkdir -Force $syslogStorage > $null
 	$syslogStorageFinale = '.\output_sample\merge'	
  	$syslogStorageTemp = '.\output_sample\tmp_log'
-	Write-Host -ForegroundColor White -BackgroundColor DarkRed "Mode test => Reason: the script not configured"
-	Write-EventLog -LogName System -Source LoggerMerger -EntryType Warning -Event 2 -Message "Mode test => Reason: the script is not configured"
+  	logMsg -EventId 2 -EntryType Warning -Message "Mode test => Reason: the script is not configured"
 }
 mkdir -Force $syslogStorageTemp > $null
 mkdir -Force $syslogStorageFinale > $null
@@ -96,6 +118,6 @@ $loop = [Math]::Ceiling($logData.Length / 32000)
 	$size = if( $_*32000+32000 -gt $logData.Length ){ $logData.Length-($_*32000) }else{ 32000 }
 	if( $size -gt 0 ){
 		Write-Host "Writting Part $_"
-		Write-EventLog -LogName System -Source LoggerMerger -EntryType Information -Event 1 -Message $logData.SubString($_*32000, $size)
+		logMsg -EventId 1 -EntryType Information -Message $logData.SubString($_*32000, $size)
 	}
 }
