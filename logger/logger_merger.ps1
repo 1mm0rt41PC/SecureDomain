@@ -39,10 +39,10 @@ $date                    = (Get-Date -Format "yyyyMMddHHmm")
 $logFolder               = "C:\Windows\logs\logger" # This script log
 $maxLogPowershellHistory = (Get-Date).AddDays(-30)# This script log
 $ErrorActionPreference   = 'Stop'
+$EventLogName            = 'Logger2Merger'
 
 
-
-New-EventLog -LogName System -Source LoggerMerger -ErrorAction SilentlyContinue;
+New-EventLog -LogName System -Source $EventLogName -ErrorAction SilentlyContinue;
 function logMsg
 {
 	Param
@@ -59,9 +59,10 @@ function logMsg
 	)
 	Write-Host -ForegroundColor White -BackgroundColor DarkRed $Message
 	try{
-		Write-EventLog -ErrorAction Stop -LogName System -Source LoggerMerger -EntryType $EntryType -Event $EventId -Message $Message
+		Write-EventLog -ErrorAction Stop -LogName System -Source $EventLogName -EntryType $EntryType -Event $EventId -Message $Message
 	}catch{}
 }
+
 
 try{
 	mkdir -ErrorAction Stop -force $logFolder
