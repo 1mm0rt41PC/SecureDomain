@@ -24,8 +24,8 @@ $SearchResult = $Searcher.Search($Criteria).Updates
 $SearchResult.Count
 
 Get-WinEvent -FilterHashtable @{
-    LogName='Microsoft-Windows-WindowsUpdateClient/Operational'
-    Id=19;
+	LogName='Microsoft-Windows-WindowsUpdateClient/Operational'
+	Id=19;
 	StartTime=(get-date).AddHours(-1)
 } -MaxEvents 10
 #>
