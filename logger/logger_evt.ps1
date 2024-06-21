@@ -63,9 +63,10 @@ $hoursHistory            = 2
 $maxLogPowershellHistory = (Get-Date).AddDays(-30)
 $logFolder               = 'C:\Windows\logs\logger'
 $ErrorActionPreference   = 'Stop'
+$EventLogName            = 'LoggerEvt2CSV'
 
 
-New-EventLog -LogName System -Source Logger2CSV -ErrorAction SilentlyContinue;
+New-EventLog -LogName System -Source $EventLogName -ErrorAction SilentlyContinue;
 
 
 function logMsg
@@ -84,7 +85,7 @@ function logMsg
 	)
 	Write-Host -ForegroundColor White -BackgroundColor DarkRed $Message
 	try{
-		Write-EventLog -ErrorAction Stop -LogName System -Source Logger2CSV -EntryType $EntryType -Event $EventId -Message $Message
+		Write-EventLog -ErrorAction Stop -LogName System -Source $EventLogName -EntryType $EntryType -Event $EventId -Message $Message
 	}catch{}
 }
 
