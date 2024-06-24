@@ -301,6 +301,23 @@ var gpoYamlRules={
                     "ScheduledInstallTime": "DWord:3"
                 }
             }
+        },
+        "Print spooler configuration": {
+            "ShortPrefix": "GPO,Computer",
+            "Comment": "Configure spooler to avoid priviledge escalation.\n\nSide effect: Block installation of new printers ! Package your printer drivers in the image or via WSUS/SCCM\nIf disabled: Lost logs information\n",
+            "Hive": {
+                "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Printers\\PointAndPrint": {
+                    "RestrictDriverInstallationToAdministrators": "DWord:1",
+                    "NoWarningNoElevationOnInstall": "DWord:0",
+                    "UpdatePromptSettings": "DWord:0",
+                    "InForest": "DWord:0",
+                    "TrustedServers": "DWord:1"
+                },
+                "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows NT\\Printers\\PackagePointAndPrint": {
+                    "PackagePointAndPrintOnly": "DWord:1",
+                    "PackagePointAndPrintServerList": "DWord:1"
+                }
+            }
         }
     },
     "Log": {

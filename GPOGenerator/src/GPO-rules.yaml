@@ -467,6 +467,32 @@ Hardening:
                 AUOptions: DWord:2
                 ScheduledInstallDay: DWord:0
                 ScheduledInstallTime: DWord:3
+                
+    ###########################################################################
+    Print spooler configuration:
+        ShortPrefix: GPO,Computer
+        Comment: |
+            Configure spooler to avoid priviledge escalation.
+            
+            Side effect: Block installation of new printers ! Package your printer drivers in the image or via WSUS/SCCM
+            If disabled: Lost logs information
+        Hive:
+            # Limits print driver installation to Administrators
+            HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint:
+                RestrictDriverInstallationToAdministrators: DWord:1
+                # Show warning and elevation prompt (default).
+                NoWarningNoElevationOnInstall: DWord:0
+                # Show warning and elevation prompt (default).
+                UpdatePromptSettings: DWord:0
+                # Users can point and print to any machine (default).
+                InForest: DWord:0
+                # Users can point and print to any server (default).
+                TrustedServers: DWord:1
+            HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint:
+                # Package Point and print - Only use Package Point and Print
+                PackagePointAndPrintOnly: DWord:1
+                # Package Point and print - Approved servers > PackagePointAndPrintServerList
+                PackagePointAndPrintServerList: DWord:1
 
 Log:
     ###########################################################################
