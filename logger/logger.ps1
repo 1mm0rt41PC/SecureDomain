@@ -461,22 +461,77 @@ runTest @param
 
 ###############################################################################
 # List ScheduledTask
+function SerializeWMIObject
+{
+	Param( [Parameter(Mandatory = $true, ValueFromPipeline = $true)] $WMI )
+	if( $WMI -eq $null -or $WMI.Count -eq 0 ){
+		return @()
+	}
+	return $WMI | %{
+		$ret = 1 | Select __IGNORE
+		$_.Properties | Select Name,Value,Type | ?{$_.Value -ne $null} | %{
+			$r = $_
+			if( $r.Type -eq 'Object' ){
+				$ret = $ret | Select *,@{n=$r.Name;e={ SerializeWMIObject -WMI $r.Value }}
+			}else{			
+				if( -not $r.Name.StartsWith('_') ){
+					$ret = $ret | Select *,@{n=$r.Name;e={$r.Value}}
+				}
+			}
+		}
+		return $ret | Select -ExcludeProperty __IGNORE * 
+	}	
+}
+
 $param = @{
 	Name="List ScheduledTask";
 	Output="ScheduledTasks";
 	ErrorMessage=">schtasks< not supported";
-	ColumnsList=1 | Select "TaskName","Next Run Time","Status","Logon Mode","Last Run Time","Last Result","Author","Task To Run","Start In","Comment","Scheduled Task State","Idle Time","Power Management","Run As User","Delete Task If Not Rescheduled","Stop Task If Runs X Hours and X Mins","Schedule","Schedule Type","Start Time","Start Date","End Date","Days","Months","Repeat: Every","Repeat: Until: Time","Repeat: Until: Duration","Repeat: Stop If Still Running";
+	ColumnsList=1 | Select URI,Author,Date,LogonType,State,UserId,Actions,Triggers,LastRunTime,LastTaskResult,NextRunTime,NumberOfMissedRuns;
 	InlineCode={
 		param($ColumnsList)
-		$schtasks = schtasks.exe /query /V /FO csv 2>&1
-		if( $LASTEXITCODE -eq 0 ){
-			return @"
-"HostName","TaskName","Next Run Time","Status","Logon Mode","Last Run Time","Last Result","Author","Task To Run","Start In","Comment","Scheduled Task State","Idle Time","Power Management","Run As User","Delete Task If Not Rescheduled","Stop Task If Runs X Hours and X Mins","Schedule","Schedule Type","Start Time","Start Date","End Date","Days","Months","Repeat: Every","Repeat: Until: Time","Repeat: Until: Duration","Repeat: Stop If Still Running","Error"
-$($schtasks -join "`r`n")
-"@ | ConvertFrom-CSV | where { $_.HostName -eq $env:COMPUTERNAME }
-		}else{
-			$schtasks = $schtasks | out-string
-			throw $schtasks
+		Get-WmiObject -Namespace "Root\Microsoft\Windows\TaskScheduler" -Query "Select * from MSFT_ScheduledTask" | %{
+			if( $_.Actions -ne $null -and $_.Actions.Count -gt 0 ){
+				$actions = (SerializeWMIObject $_.Actions | ConvertTo-Json -Compress).Replace('"',"'")
+			}else{
+				$actions = '[]'
+			}
+			if( $_.Triggers -ne $null -and $_.Triggers.Count -gt 0 ){
+				$triggers = (SerializeWMIObject $_.Triggers | ConvertTo-Json -Compress).Replace('"',"'")
+			}else{
+				$triggers = '[]'
+			}
+			
+			$row = $_ | Select URI,Author,Date,
+				@{n="LogonType";e={
+					switch($_.Principal.LogonType){
+						0 {'None'}
+						1 {'Hardcoded Password'}
+						2 {'Service 4 Users'}
+						3 {'Interactive (User Must be logged in)'}
+						4 {'Group'}
+						5 {'Local Service/System or Network Service'}
+						6 {'Interactive Token then Try Password'}
+					}
+				}},
+				@{n="State";e={if( $_.State -eq 1 ){'Disabled'}else{'Enabled'}}},
+				@{n="UserId";e={$_.Principal.UserId}},
+				@{n="Actions";e={$actions}},
+				@{n="Triggers";e={$triggers}},
+				@{n="LastRunTime";e={"?"}},
+				@{n="LastTaskResult";e={"?"}},
+				@{n="NextRunTime";e={"?"}},
+				@{n="NumberOfMissedRuns";e={"?"}}
+			try{
+				$info = Get-ScheduledTaskInfo -ErrorAction Stop -TaskName $_.TaskName -TaskPath $_.TaskPath
+				$row.LastRunTime = $info.LastRunTime
+				$row.LastTaskResult = $info.LastTaskResult
+				$row.NextRunTime = $info.NextRunTime
+				$row.NumberOfMissedRuns = $info.NumberOfMissedRuns
+			}catch{}
+			if( $row.Actions -ne $null -and $row.Actions.Count -gt 0 ){
+				$row
+			}
 		}
 	}
 }
