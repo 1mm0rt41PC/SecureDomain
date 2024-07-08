@@ -1025,6 +1025,58 @@ runTest @param
 
 
 ###############################################################################
+# List ACL on DCOM
+$param = @{
+	Name="List DCOM Acl";
+	Output="DCOM";
+	ErrorMessage="Registry not supported";
+	ColumnsList=1 | Select AppID,AppName,UserSID,UserName,ACL,Service,RunAs;
+	InlineCode={
+ 		param($ColumnsList)
+		$dcomACL = @()
+		foreach ($registry in dir "HKLM:\SOFTWARE\Classes\AppID\{*")
+		{
+			$appId    = $registry.Name.Split('\')[-1]
+			$appName  = $registry.GetValue("")
+			
+			$dcomPath = "HKLM:\SOFTWARE\Classes\AppID\$appId"
+			foreach( $aceType in @('LaunchPermission','AccessPermission','ConfigurationPermission') )
+			{
+				# Get launch and activation permissions
+				$acl = $registry.GetValue($aceType)
+				if ($acl) {
+					$sddl = [System.Security.AccessControl.RawSecurityDescriptor]::New($acl, 0)
+					if( $sddl.DiscretionaryAcl.Count -gt 0 ){
+						$localService = $registry.GetValue("LocalService")
+						$runAs = $registry.GetValue("RunAs")
+						$serviceParameters = $registry.GetValue("ServiceParameters")
+						if( $serviceParameters -ne $null ){
+							$localService += " " + $serviceParameters 
+						}
+						$dcomACL += @( 1 | Select @{n="AppID";e={$appId}},@{n="AppName";e={$appName}},@{n="UserSID";e={$sddl.Owner}},@{n="UserName";e={try{(New-Object System.Security.Principal.SecurityIdentifier($sddl.Owner)).Translate([System.Security.Principal.NTAccount]).Value}catch{'?'}}},@{n="ACL";e={"Owner"}},@{n="Service";e={$localService}},@{n="RunAs";e={$runAs}} )
+						$dcomACL += @( 1 | Select @{n="AppID";e={$appId}},@{n="AppName";e={$appName}},@{n="UserSID";e={$sddl.Group}},@{n="UserName";e={try{(New-Object System.Security.Principal.SecurityIdentifier($sddl.Group)).Translate([System.Security.Principal.NTAccount]).Value}catch{'?'}}},@{n="ACL";e={"Group"}},@{n="Service";e={$localService}},@{n="RunAs";e={$runAs}} )
+						$sddl.DiscretionaryAcl | %{
+							$userSID    = $_.SecurityIdentifier
+							$userName   = try{(New-Object System.Security.Principal.SecurityIdentifier($userSID)).Translate([System.Security.Principal.NTAccount]).Value}catch{'?'}
+							$accessMask = $_.AccessMask
+							if ($accessMask -band 0x01) { $rights = "$aceType - Local Launch"      ; $dcomACL += @( 1 | Select @{n="AppID";e={$appId}},@{n="AppName";e={$appName}},@{n="UserSID";e={$userSID}},@{n="UserName";e={$userName}},@{n="ACL";e={$rights}},@{n="Service";e={$localService}},@{n="RunAs";e={$runAs}} )}
+							if ($accessMask -band 0x02) { $rights = "$aceType - Remote Launch"     ; $dcomACL += @( 1 | Select @{n="AppID";e={$appId}},@{n="AppName";e={$appName}},@{n="UserSID";e={$userSID}},@{n="UserName";e={$userName}},@{n="ACL";e={$rights}},@{n="Service";e={$localService}},@{n="RunAs";e={$runAs}} )}
+							if ($accessMask -band 0x04) { $rights = "$aceType - Local Activation"  ; $dcomACL += @( 1 | Select @{n="AppID";e={$appId}},@{n="AppName";e={$appName}},@{n="UserSID";e={$userSID}},@{n="UserName";e={$userName}},@{n="ACL";e={$rights}},@{n="Service";e={$localService}},@{n="RunAs";e={$runAs}} )}
+							if ($accessMask -band 0x08) { $rights = "$aceType - Remote Activation" ; $dcomACL += @( 1 | Select @{n="AppID";e={$appId}},@{n="AppName";e={$appName}},@{n="UserSID";e={$userSID}},@{n="UserName";e={$userName}},@{n="ACL";e={$rights}},@{n="Service";e={$localService}},@{n="RunAs";e={$runAs}} )}
+							if ($accessMask -band 0x10) { $rights = "$aceType - Local Access"      ; $dcomACL += @( 1 | Select @{n="AppID";e={$appId}},@{n="AppName";e={$appName}},@{n="UserSID";e={$userSID}},@{n="UserName";e={$userName}},@{n="ACL";e={$rights}},@{n="Service";e={$localService}},@{n="RunAs";e={$runAs}} )}
+							if ($accessMask -band 0x20) { $rights = "$aceType - Remote Access"     ; $dcomACL += @( 1 | Select @{n="AppID";e={$appId}},@{n="AppName";e={$appName}},@{n="UserSID";e={$userSID}},@{n="UserName";e={$userName}},@{n="ACL";e={$rights}},@{n="Service";e={$localService}},@{n="RunAs";e={$runAs}} )}
+						}
+					}
+				}
+			}
+		}
+		return $dcomACL
+	}
+}
+runTest @param
+
+
+###############################################################################
 ###############################################################################
 ###############################################################################
 
