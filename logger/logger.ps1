@@ -18,6 +18,7 @@
 # along with this program; see the file COPYING. If not, write to the
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
+# Update: 2027-07-08 - Support DCOM ACL
 # Update: 2024-06-20 - Fix err on LocalGroup collector | Fix test mode
 # Update: 2024-06-10 - Fix crash when non admin run
 # Update: 2024-06-07 - Fix SmbShare error
