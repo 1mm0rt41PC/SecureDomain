@@ -35,6 +35,7 @@ $xml = @'
 		([xml]$_.Toxml()).Event.EventData.Data | ForEach-Object {
 			$h.Add($_.'Name',$_.'#text')
 		}
+  		$h.Add('AuthFailed',$_.Id -eq 4625)
 		[PSCustomObject]$h
 	}
 } | Out-GridView
@@ -46,6 +47,7 @@ Get-WinEvent -FilterXml $xml  -ErrorAction SilentlyContinue | ForEach-Object {
 	([xml]$_.Toxml()).Event.EventData.Data | ForEach-Object {
 		$h.Add($_.'Name',$_.'#text')
 	}
+ 	$h.Add('AuthFailed',$_.Id -eq 4625)
 	[PSCustomObject]$h
 } | Export-CSV -NoTypeInformation -Encoding UTF8 "C:\Windows\SYSVOL\domain\logs\$($env:COMPUTERNAME)_Events-4624_$((Get-Date).ToString('yyyyMMddHH')).csv"
 
