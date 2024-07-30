@@ -113,7 +113,7 @@ $xml = @'
 	<QueryList>
 		<Query Id="0" Path="security">
 			<Select Path="security">
-				*[System[(EventID=4624) and TimeCreated[timediff(@SystemTime) &lt;= XXX_TIME_IN_SECONDS_XXX]]]
+				*[System[((EventID=4624) or (EventID=4625)) and TimeCreated[timediff(@SystemTime) &lt;= XXX_TIME_IN_SECONDS_XXX]]]
 				and
 				 *[EventData[Data[@Name='LmPackageName']='NTLM V1']]
 			</Select>
@@ -130,6 +130,7 @@ Get-WinEvent -FilterXml $xml -ErrorAction SilentlyContinue | ForEach-Object {
 		$h.Add($_.'Name',$_.'#text')
 	}
  	$h.Add('TimeCreated',$_.TimeCreated)
+	$h.Add('AuthFailed',$_.Id -eq 4625)
 	[PSCustomObject]$h
 } | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\Events-NTLMv1_${hostname}_${date}.csv"
 
