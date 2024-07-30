@@ -1,8 +1,0 @@
-﻿"HostName","Name","SID","AccountExpires","Enabled","PasswordChangeableDate","PasswordExpires","UserMayChangePassword","PasswordRequired","PasswordLastSet","LastLogon","Error"
-"DC-SRV01","Administrator","S-1-5-21-3318670742-1788910955-930507466-500",,"True","3/8/2024 9:24:09 AM",,"True","True","3/8/2024 9:24:09 AM","6/20/2024 12:58:57 AM",
-"DC-SRV01","Guest","S-1-5-21-3318670742-1788910955-930507466-501",,"False",,,"True","False",,,
-"DC-SRV01","krbtgt","S-1-5-21-3318670742-1788910955-930507466-502",,"False","10/2/2023 8:56:53 AM","11/13/2023 7:56:53 AM","True","True","10/2/2023 8:56:53 AM",,
-"DC-SRV01","toto","S-1-5-21-3318670742-1788910955-930507466-1609",,"True",,,"True","True",,,
-"DC-SRV01","toto_titi","S-1-5-21-3318670742-1788910955-930507466-1610",,"True",,,"True","True",,,
-"DC-SRV01","DC-SRV01$","S-1-5-21-3318670742-1788910955-930507466-1000",,"True","6/18/2024 7:49:04 AM",,"True","True","6/18/2024 7:49:04 AM","6/20/2024 12:58:54 AM",
-"DC-SRV01","SRV-MGMT-01$","S-1-5-21-3318670742-1788910955-930507466-1601",,"True","11/8/2023 2:40:19 PM",,"True","False","11/8/2023 2:40:19 PM",,

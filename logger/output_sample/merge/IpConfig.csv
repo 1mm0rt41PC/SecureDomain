@@ -1,2 +1,0 @@
-﻿"HostName","InterfaceIndex","MACAddress","IPAddress","IPSubnet","DefaultIPGateway","Description","DHCPEnabled","DHCPServer","DNSDomain","DNSServerSearchOrder","DNSDomainSuffixSearchOrder","DomainDNSRegistrationEnabled","FullDNSRegistrationEnabled","TcpipNetbiosOptions","WINSPrimaryServer"
-"DC-SRV01","8","00:0C:29:62:F3:A1","192.168.65.10","255.255.255.0","192.168.65.2","Intel(R) 82574L Gigabit Network Connection","False",,,"1.2.3.4 5.6.7.8","earth.lo","False","True","0",
