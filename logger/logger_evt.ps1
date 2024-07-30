@@ -129,6 +129,7 @@ Get-WinEvent -FilterXml $xml -ErrorAction SilentlyContinue | ForEach-Object {
 	([xml]$_.Toxml()).Event.EventData.Data | ForEach-Object {
 		$h.Add($_.'Name',$_.'#text')
 	}
+ 	$h.Add('TimeCreated',$_.TimeCreated)
 	[PSCustomObject]$h
 } | Export-CSV -NoTypeInformation -Encoding UTF8 "$syslogStorage\Events-NTLMv1_${hostname}_${date}.csv"
 
@@ -138,7 +139,8 @@ Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Reading event 2889 
 Get-WinEvent -ErrorAction SilentlyContinue -FilterHashtable @{Logname='Directory Service';Id=2889; StartTime=(get-date).AddHours(-1*$hoursHistory)} | %{
 	# Loop through each event and output the
 	$eventXML = [xml]$_.ToXml()
-	$Row = 1 | Select IPAddress,User,BindType
+	$Row = 1 | Select IPAddress,User,BindType,TimeCreated
+ 	$Row.TimeCreated = $_.TimeCreated
 	$Client = ($eventXML.event.EventData.Data[0])
 	$Row.IPAddress = $Client.SubString(0,$Client.LastIndexOf(":")) #Accomodates for IPV6 Addresses
 	$Row.User = $eventXML.event.EventData.Data[1]

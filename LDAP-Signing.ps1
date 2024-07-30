@@ -49,3 +49,28 @@ Get-WinEvent -FilterHashtable @{Logname='Directory Service';Id=2889; StartTime=(
 	}
 	$Row
 } | Export-CSV -NoTypeInformation -Encoding UTF8 "\\DC01.corp.lo\log$\$($env:COMPUTERNAME)_Events_$((Get-Date).ToString('yyyyMMddHH')).csv"
+
+
+<#
+For linux joined computers do not forget to configure SSSD:
+root@server:~$ cat /etc/sssd/sssd.conf
+[corp.lo/mycomputer.com]
+id_provider = ad
+auth_provider = ldap
+chpass_provider = ldap
+ldap_uri = ldaps://ldap.example.com
+ldap_search_base = dc=example,dc=com
+ldap_tls_reqcert = demand
+
+# SASL GSSAPI settings (SASL)
+ldap_sasl_mech = GSSAPI
+ldap_sasl_authid = host/$(hostname -f)@EXAMPLE.COM
+krb5_server = kerberos.example.com
+ldap_sasl_realm = kerberos.example.com
+
+
+Check logs to find any binding failure:
+root@server:~$ grep -Fi sasl /var/log/sssd/*
+(Fri Jul 27 18:27:44 2012) [sssd[be[ADTEST]]] [sasl_bind_send] (0x0020): ldap_sasl_bind failed (-2)[Local error]
+(Fri Jul 27 18:27:44 2012) [sssd[be[ADTEST]]] [sasl_bind_send] (0x0080): Extended failure message: [SASL(-1): generic failure: GSSAPI Error: Unspecified GSS failure.  Minor code may provide more information (Cannot determine realm for numeric host address)]
+#>
