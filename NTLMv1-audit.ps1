@@ -22,7 +22,7 @@ $xml = @'
 	<QueryList>
 		<Query Id="0" Path="security">
 			<Select Path="security">
-				*[System[(EventID=4624)]]
+				*[System[(EventID=4624) or (EventID=4625)]]
 				and
 				 *[EventData[Data[@Name='LmPackageName']='NTLM V1']]
 			</Select>
