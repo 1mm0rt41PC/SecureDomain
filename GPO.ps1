@@ -373,6 +373,36 @@ New-GPO -Name "[1mm0rt41][Hardening](GPO,Computer) WinRM - Configuration" -Comme
 
 
 ###########################################################################################
+# [1mm0rt41][Hardening](GPO,Computer) WSUS - Configuration with HTTPS
+###########################################################################################
+New-GPO -Name "[1mm0rt41][Hardening](GPO,Computer) WSUS - Configuration with HTTPS" -Comment "##################################`r`n`r`nWSUS configuration:`r`n- Force HTTPS`r`n`r`nIf disabled: Restore WSUS default configuration" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" -ValueName "WUServer" -Value "https://xxxxx.corp.lo:8531" -Type String >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" -ValueName "WUStatusServer" -Value "https://xxxxx.corp.lo:8531" -Type String >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "UseWUServer" -Value 1 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "NoAutoUpdate" -Value 0 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "AUOptions" -Value 2 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "ScheduledInstallDay" -Value 0 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -ValueName "ScheduledInstallTime" -Value 3 -Type DWord >$null
+	$_
+}
+
+
+###########################################################################################
+# [1mm0rt41][Hardening](GPO,Computer) Print spooler configuration
+###########################################################################################
+New-GPO -Name "[1mm0rt41][Hardening](GPO,Computer) Print spooler configuration" -Comment "##################################`r`n`r`nConfigure spooler to avoid priviledge escalation.`r`n`r`nSide effect: Block installation of new printers ! Package your printer drivers in the image or via WSUS/SCCM`r`nIf disabled: Lost logs information" | %{
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint" -ValueName "RestrictDriverInstallationToAdministrators" -Value 1 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint" -ValueName "NoWarningNoElevationOnInstall" -Value 0 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint" -ValueName "UpdatePromptSettings" -Value 0 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint" -ValueName "InForest" -Value 0 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint" -ValueName "TrustedServers" -Value 1 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint" -ValueName "PackagePointAndPrintOnly" -Value 1 -Type DWord >$null
+	$_ | Set-GPRegistryValue -Key "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint" -ValueName "PackagePointAndPrintServerList" -Value 1 -Type DWord >$null
+	$_
+}
+
+
+###########################################################################################
 # [1mm0rt41][Log](GPO,Computer) LSA & NTLM Audit Mode
 ###########################################################################################
 New-GPO -Name "[1mm0rt41][Log](GPO,Computer) LSA & NTLM Audit Mode" -Comment "##################################`r`n`r`nWindows logs configuration:`r`n- Audit LSA protection (RunAsPPL)`r`n- Audit incoming NTLM traffic for all accounts:`r`n    to view =>`r`n    Get-WinEvent -Filterxml @'`r`n    <QueryList>`r`n     <Query Id=`"0`" Path=`"security`">`r`n      <Select Path=`"security`">`r`n       *[System[(EventID=4624)]]`r`n        and`r`n        (`r`n         *[EventData[Data[@Name='AuthenticationPackageName']!='Kerberos']]`r`n         and`r`n         *[EventData[Data[@Name='LmPackageName']!='NTLM V2']]`r`n       )`r`n      </Select>`r`n     </Query>`r`n    </QueryList>`r`n    '@`r`n    and also Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-NTLM/Operational' ; Id = 8001,8002 }            `r`n`r`nIf disabled: Lost logs information" | %{
