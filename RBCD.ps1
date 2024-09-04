@@ -1,1 +1,1 @@
-Get-ADComputer -Filter * -Properties * | Format-List -Property *delegat*,msDS-AllowedToActOnBehalfOfOtherIdentity
+Get-ADComputer -Filter * -Properties * | Format-List -Property Name,*delegat*,msDS-AllowedToActOnBehalfOfOtherIdentity
