@@ -18,6 +18,7 @@
 # along with this program; see the file COPYING. If not, write to the
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
+# Update: 2024-09-17 - Add reg HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\CachedLogonsCount
 # Update: 2024-08-22 - Add monitoring PointAndPrint Spooler
 # Update: 2024-07-11 - Add opt to limit nb of event (default 500) & Add support for command line args
 # Update: 2024-07-08 - Support DCOM ACL
@@ -278,6 +279,7 @@ $param = @{
 			@('Credentials Protection','HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest','Negotiate',0),
 			@('Credentials Protection','HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System','FilterAdministratorToken',1),
 			@('Credentials Protection','HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System','LocalAccountTokenFilterPolicy',0),
+   			@('Credentials Protection','HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon','CachedLogonsCount',0),
 			@('Credentials Relay - LDAP Client','HKLM\System\CurrentControlSet\Services\LDAP','LDAPClientIntegrity',2),
 			@('Credentials Relay - LDAP Server','HKLM\System\CurrentControlSet\Services\NTDS\Parameters','LDAPClientIntegrity',2),
 			@('Credentials Relay - LDAP Server','HKLM\System\CurrentControlSet\Services\NTDS\Parameters','LdapEnforceChannelBinding',2),
