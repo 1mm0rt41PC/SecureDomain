@@ -9,4 +9,5 @@ $dom | %{
 	Get-AdUser -Server $dom.PDCEmulator -Properties ServicePrincipalNames -Filter { ServicePrincipalNames -ne "$null"} | where {$_.ServicePrincipalNames -ne $null } | Select SamAccountName,DistinguishedName,ServicePrincipalNames
 } | ConvertTo-Json
 
-Get-ADComputer -Filter { ServicePrincipalName -ne "$null"} -Properties ServicePrincipalName | select SamAccountName, ServicePrincipalName | Out-String -Width 4096
+# Mono-domain
+# Get-ADComputer -Filter { ServicePrincipalName -ne "$null"} -Properties ServicePrincipalName | select SamAccountName, ServicePrincipalName | Out-String -Width 4096
