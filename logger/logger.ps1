@@ -782,7 +782,7 @@ $param = @{
 	InlineCode={
 		param($ColumnsList)
 		return Get-WmiObject Win32_NetworkAdapterConfiguration -ErrorAction Stop | ?{ $_.IPEnabled -eq $true -and $_.IPAddress -ne $null -and $_.IPAddress.Count -ge 1 -and $_.IPAddress[0] -ne '' } | %{
-			$row = $_ | Select InterfaceIndex,MACAddress,IPAddress,IPSubnet,DefaultIPGateway,Description,DHCPEnabled,DHCPServer,DNSDomain,DNSServerSearchOrder,@{n="DNSDomainSuffixSearchOrder";e={$row.DNSDomainSuffixSearchOrder -join ","}},DomainDNSRegistrationEnabled,FullDNSRegistrationEnabled,TcpipNetbiosOptions,WINSPrimaryServer
+			$row = $_ | Select InterfaceIndex,MACAddress,IPAddress,IPSubnet,DefaultIPGateway,Description,DHCPEnabled,DHCPServer,DNSDomain,@{n="DNSServerSearchOrder";e={$row.DNSServerSearchOrder -join ","}},@{n="DNSDomainSuffixSearchOrder";e={$row.DNSDomainSuffixSearchOrder -join ","}},DomainDNSRegistrationEnabled,FullDNSRegistrationEnabled,TcpipNetbiosOptions,WINSPrimaryServer
 			for( $i=0; $i -lt $_.IPAddress.Count; $i++ ){
 				$ret = $row | Select *
 				$ret.IPAddress = $_.IPAddress[$i]
