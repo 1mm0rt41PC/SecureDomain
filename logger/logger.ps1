@@ -18,7 +18,7 @@
 # along with this program; see the file COPYING. If not, write to the
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
-# Update: 2024-09-25 - Add support for GPO last apply
+# Update: 2024-09-25 - Add support for GPO last apply & GPO monitoring
 # Update: 2024-09-17 - Add reg HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\CachedLogonsCount
 # Update: 2024-08-22 - Add monitoring PointAndPrint Spooler
 # Update: 2024-07-11 - Add opt to limit nb of event (default 500) & Add support for command line args
@@ -1183,6 +1183,35 @@ $param = @{
 			}
 		}
 		return $dcomACL
+	}
+}
+runTest @param
+
+
+###############################################################################
+# Monitor GPO activities
+$param = @{
+	Name="List GPO activities from the last 24h";
+	Output="Events-GPO_$((Get-Date).ToString('yyyyMMddHHmmss'))";
+	ErrorMessage=">Get-WinEvent< not supported";
+	ColumnsList=1 | Select TimeCreated,Id,Message,Info,isGPOSuccess;
+	InlineCode={
+		param($ColumnsList)
+		try {
+			return Get-WinEvent -FilterHashtable @{ LogName = 'System'; Id=1502,1500,1501,1503,  1085,1109,1112,1126,1128; StartTime=(get-date).AddHours(-1*$hoursEventHistory) } -MaxEvents $maxNbEventHistory -ErrorAction Stop | % {
+				$ret = $_ | Select TimeCreated,Id,Message,Info,isGPOSuccess
+				$xml = [xml]$_.toXML()
+				$ret.isGPOSuccess = $_.Id -in @(1502,1500,1501,1503)
+				$ret.Info = $xml.Event.EventData.Data | %{  return @($_ | select Name,@{n="Value";e={$_.'#text'}}) } | convertto-json -Compress
+				$ret
+			}
+		}catch{
+			if( $_.CategoryInfo.Category -eq 'ObjectNotFound' -and $_.CategoryInfo.Activity -eq 'Get-WinEvent' ){
+				return;
+			}else{
+				throw $_ 
+			}
+		}
 	}
 }
 runTest @param
