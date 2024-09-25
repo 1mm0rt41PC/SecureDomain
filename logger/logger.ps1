@@ -18,6 +18,7 @@
 # along with this program; see the file COPYING. If not, write to the
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
+# Update: 2024-09-25 - Add support for GPO last apply
 # Update: 2024-09-17 - Add reg HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\CachedLogonsCount
 # Update: 2024-08-22 - Add monitoring PointAndPrint Spooler
 # Update: 2024-07-11 - Add opt to limit nb of event (default 500) & Add support for command line args
@@ -468,6 +469,22 @@ $param = @{
 		}catch{
 			$err = $_.Exception.Message
 			$ret += @($ColumnsList | Select * | %{$_.Key="BitLocker-Supported"; $_.Value=$err; $_.Expected=$true; $_.Compliant=$_.Expected -eq $_.Value; $_.Error=$err; $_})
+		}
+		$registryPath = "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Group Policy\State\Machine\Extension-List\{00000000-0000-0000-0000-000000000000}"
+		if( Test-Path $registryPath ){
+		    try {
+		        $startTimeHi = (Get-ItemProperty -Path $registryPath).startTimeHi
+		        $startTimeLo = (Get-ItemProperty -Path $registryPath).startTimeLo
+		        $fileTime = ([Int64]$startTimeHi -shl 32) -bor [UInt32]$startTimeLo
+		        $startTime = [DateTime]::FromFileTime($fileTime)
+		        $currentTime = Get-Date
+		        $delta = ($currentTime - $startTime).TotalHours
+		        $ret += @($ColumnsList | Select * | %{$_.Key="GPO-Last-Update"; $_.Value="$startTime ($([Math]::Round($delta)) min)"; $_.Expected='2h max'; $_.Compliant=$delta -lt 3; $_})
+		    } catch {
+		        $ret += @($ColumnsList | Select * | %{$_.Key="GPO-Last-Update"; $_.Value=$err; $_.Expected='2h max'; $_.Compliant=$false; $_.Error=$err; $_})
+		    }
+		}else {
+		    $ret += @($ColumnsList | Select * | %{$_.Key="GPO-Last-Update"; $_.Value=$err; $_.Expected='2h max'; $_.Compliant=$false; $_.Error="Path dosent exist $registryPath"; $_})
 		}
 		return $ret
 	}
