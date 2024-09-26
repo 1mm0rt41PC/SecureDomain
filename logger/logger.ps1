@@ -18,6 +18,7 @@
 # along with this program; see the file COPYING. If not, write to the
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
+# Update: 2024-09-26 - Add support for RPD shadow
 # Update: 2024-09-25 - Add support for GPO last apply & GPO monitoring
 # Update: 2024-09-17 - Add reg HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\CachedLogonsCount
 # Update: 2024-08-22 - Add monitoring PointAndPrint Spooler
@@ -328,6 +329,14 @@ $param = @{
 			@('RDP Server','HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','SecurityLayer',2),
 			@('RDP Server','HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','UserAuthentication',1),
 			@('RDP Server','HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','fEncryptRPCTraffic',1),
+   			# From: https://blog.bitsadmin.com/spying-on-users-using-rdp-shadowing?s=09
+      			# From: https://swarm.ptsecurity.com/remote-desktop-services-shadowing/
+			# 0 – No remote control allowed;
+			# 1 – Full Control with user’s permission;
+			# 2 – Full Control without user’s permission;
+			# 3 – View Session with user’s permission;
+			# 4 – View Session without user’s permission.
+   			@('RDP Server - Shadow','HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','Shadow', 0),
 			@('SMB Server - C$','HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','AutoShareServer',0),
 			@('SMB Server - C$','HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','AutoShareWks',0),
 			@('SSL - Web Client','HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings', 'SecureProtocols', 10752),
