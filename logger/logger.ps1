@@ -336,6 +336,7 @@ $param = @{
 			# 2 – Full Control without user’s permission;
 			# 3 – View Session with user’s permission;
 			# 4 – View Session without user’s permission.
+			@('RDP Server - FileAssoc','HKEY_CLASSES_ROOT\.RDP','(Default)','txtfile'),
    			@('RDP Server - Shadow','HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services','Shadow', 0),
 			@('SMB Server - C$','HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','AutoShareServer',0),
 			@('SMB Server - C$','HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters','AutoShareWks',0),

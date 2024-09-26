@@ -294,6 +294,15 @@ New-GPO -Name "[1mm0rt41][Hardening](GPO,Computer) RDP server configuration" | %
 
 
 ###########################################################################################
+# [1mm0rt41][Hardening](GPO,Computer) RDP Client configuration
+###########################################################################################
+New-GPO -Name "[1mm0rt41][Hardening](GPO,Computer) RDP Client configuration" | %{
+	$_ | Set-GPPrefRegistryValue -Key "HKEY_CLASSES_ROOT\.RDP" -ValueName "(Default)" -Value "txtfile" -Type String -Context User -Action Replace >$null
+	$_
+}
+
+
+###########################################################################################
 # [1mm0rt41][Hardening](GPO,Computer) LogSystem
 ###########################################################################################
 New-GPO -Name "[1mm0rt41][Hardening](GPO,Computer) LogSystem" -Comment "##################################`r`n`r`nWindows logs configuration:`r`n- type of logs`r`n- size of logs`r`n`r`nIf disabled: Lost logs information" | %{

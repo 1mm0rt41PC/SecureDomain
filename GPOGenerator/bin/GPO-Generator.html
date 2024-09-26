@@ -198,6 +198,14 @@ var gpoYamlRules={
             },
             "GPLink": "$LDAP_DN"
         },
+        "RDP Client configuration": {
+            "ShortPrefix": "GPO,Computer",
+            "Hive": {
+                "HKEY_CLASSES_ROOT\\.RDP": {
+                    "(Default)": "String:txtfile"
+                }
+            }
+        },
         "LogSystem": {
             "ShortPrefix": "GPO,Computer",
             "Comment": "Windows logs configuration:\n- type of logs\n- size of logs\n\nIf disabled: Lost logs information\n",

@@ -362,7 +362,12 @@ Hardening:
                 AllowEncryptionOracle: DWord:0 # Client applications which use CredSSP will not be able to fall back to the insecure versions and services using CredSSP will not accept unpatched clients.
             HKLM\System\CurrentControlSet\Control\Lsa:
                 DisableDomainCreds: DWord:1 # Network_access_Do_not_allow_storage_of_passwords_and_credentials_for_network_authentication
-        GPLink: $LDAP_DN 
+        GPLink: $LDAP_DN
+    RDP Client configuration:
+        ShortPrefix: GPO,Computer
+        Hive:
+            HKEY_CLASSES_ROOT\.RDP:
+                (Default): String:txtfile
     ###########################################################################
     LogSystem:
         ShortPrefix: GPO,Computer

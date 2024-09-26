@@ -80,7 +80,20 @@ function onCheckboxChange()
 					if( valType.toLowerCase() !== 'dword' ){
 						val = '"'+val+'"';
 					}
-					release += '	$_ | Set-GPRegistryValue -Key "'+hkey.replace('"','')+'" -ValueName "'+hval.replace('"','')+'" -Value '+val+' -Type '+valType+' >$null\n';
+					
+					hkey = hkey.replace('"','')
+					hval = hval.replace('"','')
+					if( hkey.includes('HKEY_CLASSES_ROOT') ){
+						var context
+						if( prefix.includes('Computer') ){
+							context = 'Computer';
+						}else{
+							context = 'User';
+						}							
+						release += '	$_ | Set-GPPrefRegistryValue -Key "'+hkey+'" -ValueName "'+hval+'" -Value '+val+' -Type '+valType+' -Context '+context+' -Action Replace >$null\n';
+					}else{
+						release += '	$_ | Set-GPRegistryValue -Key "'+hkey+'" -ValueName "'+hval+'" -Value '+val+' -Type '+valType+' >$null\n';
+					}
 				}
 			}
 			
