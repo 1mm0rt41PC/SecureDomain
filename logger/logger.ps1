@@ -479,7 +479,7 @@ $param = @{
 		        $startTime = [DateTime]::FromFileTime($fileTime)
 		        $currentTime = Get-Date
 		        $delta = ($currentTime - $startTime).TotalHours
-		        $ret += @($ColumnsList | Select * | %{$_.Key="GPO-Last-Update"; $_.Value="$startTime ($([Math]::Round($delta)) min)"; $_.Expected='2h max'; $_.Compliant=$delta -lt 3; $_})
+		        $ret += @($ColumnsList | Select * | %{$_.Key="GPO-Last-Update"; $_.Value="$startTime ($([Math]::Round($delta)) min)"; $_.Expected='2h max'; $_.Compliant=$delta -lt 3*60; $_})
 		    } catch {
 		        $ret += @($ColumnsList | Select * | %{$_.Key="GPO-Last-Update"; $_.Value=$err; $_.Expected='2h max'; $_.Compliant=$false; $_.Error=$err; $_})
 		    }
