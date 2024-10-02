@@ -18,6 +18,7 @@
 # along with this program; see the file COPYING. If not, write to the
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
+# Update: 2024-10-02 - Add support PrintNightmareVulnerability
 # Update: 2024-09-26 - Add support for RPD shadow
 # Update: 2024-09-25 - Add support for GPO last apply & GPO monitoring
 # Update: 2024-09-17 - Add reg HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\CachedLogonsCount
@@ -395,6 +396,38 @@ $param = @{
 			$row.Compliant = $row.Value -eq $row.Expected
 			$row
 		}
+  		$row = $ColumnsList | Select *
+    		$row.Key = "Printers PrivEsc | PrintNightmareVulnerability"
+      		$row.Expected = 'Not vulnerable'
+  		try{
+   			if( Test-Path "Registry::HKLM\SYSTEM\CurrentControlSet\Services\Spooler" ){
+   				$row.Value = (Get-ItemPropertyValue -Path "Registry::HKLM\SYSTEM\CurrentControlSet\Services\Spooler" -Name 'Start' -ErrorAction Stop).ToString() -eq "2"
+			}else{
+				$row.Value = $false
+   			}
+		}catch{
+			$row.Value = $false
+  		}
+    		if( $row.Value ){
+			try{
+				if( Test-Path "Registry::HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint" ){
+					$key = Get-ItemProperty -Path 'Registry::HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint' -ErrorAction Stop
+					$row.Value = ( ($key.NoWarningNoElevationOnInstall -or $key.UpdatePromptSettings) -and -not ($key.ServerList -and $key.TrustedServers) )
+				}else{
+					$row.Value = 'Service spooler up with autostart but missing configuration => Unknown exploit status'
+				}
+			}catch{
+				$row.Value = 'Service spooler up with autostart but missing configuration => Unknown exploit status'
+			}
+  		}
+		if( $row.Value -eq $false ){
+			$row.Value = 'Not vulnerable'
+  		}
+		if( $row.Value -eq $true ){
+			$row.Value = 'Vulnerable'
+  		}
+    		$row.Compliant = $row.Value -eq $row.Expected
+    		$ret += $row
 		
 		@(
 			@("HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\*.exe","Debugger"),
