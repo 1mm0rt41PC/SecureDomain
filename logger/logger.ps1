@@ -18,6 +18,7 @@
 # along with this program; see the file COPYING. If not, write to the
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
+# Update: 2024-10-04 - Fix bad username in Services_*
 # Update: 2024-10-02 - Add support PrintNightmareVulnerability
 # Update: 2024-09-26 - Add support for RPD shadow
 # Update: 2024-09-25 - Add support for GPO last apply & GPO monitoring
@@ -869,7 +870,7 @@ $param = @{
 	ColumnsList=1 | Select DisplayName,Name,State,UserName,InstallDate,Started,Status,ProcessId,PathName;
 	InlineCode={
 		param($ColumnsList)
-		return Get-WmiObject -ErrorAction Stop Win32_Service | Select DisplayName,Name,State,@{n="UserName";e={$row.StartName}},InstallDate,Started,Status,ProcessId,PathName
+		return Get-WmiObject -ErrorAction Stop Win32_Service | Select DisplayName,Name,State,@{n="UserName";e={$_.StartName}},InstallDate,Started,Status,ProcessId,PathName
 	}
 }
 runTest @param
