@@ -1,5 +1,5 @@
 $data=@()
-Get-ADObject -SearchBase ("CN=DisplaySpecifiers,"+(Get-ADDomain).DistinguishedName)) -Filter * -Properties adminContextMenu,contextMenu | select DistinguishedName,adminContextMenu,contextMenu | %{
+Get-ADObject -SearchBase ("CN=DisplaySpecifiers,CN=Configuration,"+(Get-ADDomain).DistinguishedName) -Filter * -Properties adminContextMenu,contextMenu | select DistinguishedName,adminContextMenu,contextMenu | %{
 	$ret = 1 | Select DistinguishedName,adminContextMenu,contextMenu
 	$ret.DistinguishedName=$_.DistinguishedName
 	$_.adminContextMenu | %{
