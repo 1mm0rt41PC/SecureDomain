@@ -66,6 +66,9 @@ Write-Host -NoNewLine -ForegroundColor DarkMagenta "[?] "
 $global:checkDNSAcl=$(Read-Host "Control DNS ACL [y/N] ?") -in @("y","Y")
 
 Write-Host -NoNewLine -ForegroundColor DarkMagenta "[?] "
+$global:csvFile=$(Read-Host "Generate CSV output [Y/n] ?") -in @("y","Y","")
+
+Write-Host -NoNewLine -ForegroundColor DarkMagenta "[?] "
 $global:testMode = (-not ($(Read-Host 'Confirm prod mode by typing "PROD". Type anything else for test only') -in @("PROD")))
 if( $global:testMode ){
 	Write-Host -NoNewLine -ForegroundColor Green "[+] "
@@ -84,6 +87,9 @@ if( $global:testMode -eq $false -and -not ($(Read-Host "Confirm prod mode [y/n] 
 	Write-Host "Are you realy ready ? Exiting..."
 	Exit
 }
+if( $global:csvFile ){
+	$global:csvFile = "$([guid]::NewGuid().ToString())_$((Get-ADDomain).Name).csv"
+}
 
 Write-Host -ForegroundColor DarkCyan "########################################################"
 Write-Host -NoNewLine -ForegroundColor Green "[+] "; Write-Host -NoNewLine -ForegroundColor DarkCyan "testMode= "; Write-Host $testMode
@@ -92,10 +98,10 @@ Write-Host -NoNewLine -ForegroundColor Green "[+] "; Write-Host -NoNewLine -Fore
 Write-Host -NoNewLine -ForegroundColor Green "[+] "; Write-Host -NoNewLine -ForegroundColor DarkCyan "checkInheritanceACL= "; Write-Host $global:checkInheritanceACL
 Write-Host -NoNewLine -ForegroundColor Green "[+] "; Write-Host -NoNewLine -ForegroundColor DarkCyan "checkOnlyOutdatedSID= "; Write-Host $global:checkOnlyOutdatedSID
 Write-Host -NoNewLine -ForegroundColor Green "[+] "; Write-Host -NoNewLine -ForegroundColor DarkCyan "checkVulnADCSTemplate= "; Write-Host $global:checkVulnADCSTemplate
+Write-Host -NoNewLine -ForegroundColor Green "[+] "; Write-Host -NoNewLine -ForegroundColor DarkCyan "Create CSV= "; Write-Host $global:csvFile
 if( -not($(Read-Host "Continue [Y/n] ?") -in @("y","Y","")) ){
 	Exit
 }
-
 
 $global:count_ACL = 0;
 $global:count_Owner = 0;
@@ -225,6 +231,15 @@ $PKI_CertUsage=@{
 	SUBJECT_REQUIRE_DIRECTORY_PATH = 0x80000000
 }
 
+function logToCSV( $User, $AllowsUser, $ACL, $Action, $ActionDone )
+{
+	if( $global:csvFile -in @('n','N','') ){
+		return
+	}
+	$User = ($User -split '/')[-1]
+	1 | select @{n="Object";e={$User}},@{n="AllowsUser";e={$AllowsUser}},@{n="ACL";e={$ACL}},@{n="Action";e={$Action}},@{n="ActionDone";e={$ActionDone}} | Export-Csv -Force -NoClobber -Encoding utf8 -Delimiter ',' -NoTypeInformation -Append $global:csvFile
+}
+
 ########################################################
 <#
 .SYNOPSIS
@@ -255,6 +270,7 @@ function setOwnerToDA( $obj, $modePreview=$true, $setOwnerSID=($global:domain_SI
 			Write-Host -ForegroundColor DarkCyan $obj.Name -NoNewLine
 			Write-Host -BackgroundColor DarkRed "``. Object `$acl is NULL"
 			Write-Host -BackgroundColor DarkRed "Run this script with full admin priviliege !"
+			logToCSV -User $comppath -AllowsUser "Unable to read ACL. Run this script with full admin priviliege !" -ACL "N/A"  -Action "None" -ActionDone "None"
 			return;
 		}
 		if( $global:checkOnlyOutdatedSID -eq $true ){
@@ -264,6 +280,7 @@ function setOwnerToDA( $obj, $modePreview=$true, $setOwnerSID=($global:domain_SI
 					Write-Host -NoNewLine " Valid owner for ``"
 					Write-Host -NoNewLine -ForegroundColor DarkCyan $obj.Name
 					Write-Host "``"
+					logToCSV -User $comppath -AllowsUser $acl.Owner -ACL "Owner"  -Action "None - Valid ACL" -ActionDone "None"
 				}
 				return ;
 			}
@@ -274,6 +291,7 @@ function setOwnerToDA( $obj, $modePreview=$true, $setOwnerSID=($global:domain_SI
 					Write-Host -NoNewLine " Valid owner for ``"
 					Write-Host -NoNewLine -ForegroundColor DarkCyan $obj.Name
 					Write-Host "``"
+					logToCSV -User $comppath -AllowsUser $acl.Owner -ACL "Owner"  -Action "None - Valid ACL" -ActionDone "None"
 				}
 				return ;
 			}
@@ -289,6 +307,7 @@ function setOwnerToDA( $obj, $modePreview=$true, $setOwnerSID=($global:domain_SI
 			Write-Host -NoNewLine "`` "
 			Write-Host -NoNewLine -BackgroundColor DarkGreen "(PreviewMode ! NO CHANGE on ACL)"
 			Write-Host "."
+			logToCSV -User $comppath -AllowsUser $acl.Owner -ACL "Owner"  -Action "Bad Owner, replace with Domain Admins" -ActionDone "None - Preview"
 		}else{
 			Write-Host -NoNewLine -BackgroundColor DarkRed "/!\"
 			Write-Host -NoNewLine " Changing owner of ``"
@@ -303,11 +322,13 @@ function setOwnerToDA( $obj, $modePreview=$true, $setOwnerSID=($global:domain_SI
 			try{
 				$acl.SetOwner((New-Object System.Security.Principal.SecurityIdentifier($setOwnerSID)))
 				Set-Acl -Path $comppath -AclObject $acl
+				logToCSV -User $comppath -AllowsUser $acl.Owner -ACL "Owner"  -Action "Bad Owner, replace with Domain Admins" -ActionDone "Replaced with Domain Admins"
 			}Catch{
 				Write-Host -NoNewLine -BackgroundColor DarkRed "[@] Error when WRITTING owner for ``"
 				Write-Host -ForegroundColor DarkCyan $obj.Name -NoNewLine
 				Write-Host -BackgroundColor DarkRed "``"
 				Write-Callstack $_
+				logToCSV -User $comppath -AllowsUser $acl.Owner -ACL "Owner"  -Action "Bad Owner, replace with Domain Admins" -ActionDone "Trying to replace with Domain Admins, BUT FAILED!"
 			}
 		}
 	}Catch{
@@ -447,12 +468,16 @@ function removeWeakAcl_fromUsers( $obj, $modePreview=$true, $funcTester='isAdUse
 					try{
 						$acl.RemoveAccessRule($aclr) | Out-Null
 						Set-Acl -Path $comppath -AclObject $acl | Out-Null
+						logToCSV -User $comppath -AllowsUser $aclr.IdentityReference.ToString() -ACL $aclr.ActiveDirectoryRights.ToString() -Action "Bad ACL, remove not inherited ACL" -ActionDone "ACL removed"
 					}Catch{
 						Write-Host -NoNewLine -BackgroundColor DarkRed "[@] Error when WRITTING ACL for ``"
 						Write-Host -ForegroundColor DarkCyan $obj.Name -NoNewLine
 						Write-Host -BackgroundColor DarkRed "``"
 						Write-Host $_.ScriptStackTrace
+						logToCSV -User $comppath -AllowsUser $aclr.IdentityReference.ToString() -ACL $aclr.ActiveDirectoryRights.ToString() -Action "Bad ACL, remove not inherited ACL" -ActionDone "Fail to remove ACL !"
 					}
+				}else{
+					logToCSV -User $comppath -AllowsUser $aclr.IdentityReference.ToString() -ACL $aclr.ActiveDirectoryRights.ToString() -Action "Bad ACL, remove not inherited ACL" -ActionDone "None - Preview"
 				}
 			}
 		}else{
@@ -461,6 +486,7 @@ function removeWeakAcl_fromUsers( $obj, $modePreview=$true, $funcTester='isAdUse
 				Write-Host -NoNewLine " Valid ACL ($funcTester) for ``"
 				Write-Host -NoNewLine -ForegroundColor DarkCyan $obj.Name
 				Write-Host "``"
+				logToCSV -User $comppath -AllowsUser '*' -ACL "No bad ACL" -Action "None" -ActionDone "None"
    			}
 		}
 	}Catch{
@@ -539,7 +565,7 @@ Get-ADObject -Filter '*' -Property nTSecurityDescriptor | where { $_.ObjectClass
 Write-Host "=== Users ==="
 Get-ADUser -Filter * -Property nTSecurityDescriptor | foreach {
 	$obj = [PSCustomObject]@{
-		Name			   = "User: "+$_.SamAccountName;
+		Name                       = "User: "+$_.SamAccountName;
 		DistinguishedName          = $_.DistinguishedName.ToString();
 		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
 	}
@@ -551,9 +577,9 @@ Get-ADUser -Filter * -Property nTSecurityDescriptor | foreach {
 Write-Host "=== Groups ==="
 Get-ADGroup -Filter * -Property nTSecurityDescriptor | foreach {
 	$obj = [PSCustomObject]@{
-		Name			   = "Group: "+$_.SamAccountName;
+		Name                       = "Group: "+$_.SamAccountName;
 		DistinguishedName          = $_.DistinguishedName.ToString();
-    		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
+		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
 	}
 	removeWeakAcl_fromUsers $obj $testMode 'isAdUser'
 	removeWeakAcl_fromUsers $obj $testMode 'isAdComputer'
@@ -563,10 +589,10 @@ Get-ADGroup -Filter * -Property nTSecurityDescriptor | foreach {
 Write-Host "=== GPO ==="
 Get-GPO -all | foreach {
 	$obj = [PSCustomObject]@{
-		Name			   = "GPO: "+$_.DisplayName;
+		Name                       = "GPO: "+$_.DisplayName;
 		DistinguishedName          = $_.Path.ToString();
-    		nTSecurityDescriptor       = $null;
-                Owner                      = $_.Owner;
+		nTSecurityDescriptor       = $null;
+		Owner                      = $_.Owner;
 	}
 	setOwnerToDA $obj $testMode
 }
@@ -575,17 +601,17 @@ Write-Host "=== DNS Entries ==="
 if( $global:checkDNSAcl -eq $true ){
 	Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=MicrosoftDNS,DC=DomainDnsZones,"+$global:domain_Base) | foreach {
 		$obj = [PSCustomObject]@{
-			Name			   = "DomainDnsZones: "+$_.DistinguishedName.ToString();
+			Name                       = "DomainDnsZones: "+$_.DistinguishedName.ToString();
 			DistinguishedName          = $_.DistinguishedName.ToString();
-	    		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
+			nTSecurityDescriptor       = $_.nTSecurityDescriptor;
 		}
 		setOwnerToDA $obj $testMode -allowOwnerComputer $true
 	}
 	Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=MicrosoftDNS,DC=ForestDnsZones,"+$global:domain_Base) | foreach {
 		$obj = [PSCustomObject]@{
-			Name			   = "ForestDnsZones: "+$_.DistinguishedName.ToString();
+			Name                       = "ForestDnsZones: "+$_.DistinguishedName.ToString();
 			DistinguishedName          = $_.DistinguishedName.ToString();
-	    		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
+			nTSecurityDescriptor       = $_.nTSecurityDescriptor;
 		}
 		setOwnerToDA $obj $testMode -allowOwnerComputer $true
 	}
@@ -594,9 +620,9 @@ if( $global:checkDNSAcl -eq $true ){
 Write-Host "=== SYSVOL Entries ==="
 Get-ChildItem -ErrorAction Ignore -Recurse C:\Windows\SYSVOL\domain | Select-Object @{Label="ObjectClass";Expression={"Folder SYSVOL"}},@{Label="DistinguishedName";Expression={$_.FullName}}, @{Label="Owner";Expression={(Get-Acl -Path $_.FullName).Owner}},Name | where { -not( $_.Owner -in $Secure_SID) } | %{
 	$obj = [PSCustomObject]@{
-		Name			   = "SYSVOL: "+$_.DistinguishedName.ToString();
+		Name                       = "SYSVOL: "+$_.DistinguishedName.ToString();
 		DistinguishedName          = $_.DistinguishedName.ToString();
-    		nTSecurityDescriptor       = $null;
+		nTSecurityDescriptor       = $null;
 	}
 	setOwnerToDA $obj $testMode -allowOwnerComputer $true -isFile $true
 	removeWeakAcl_fromUsers $obj $testMode 'isAdUser' -isFile $true
@@ -607,9 +633,9 @@ Get-ChildItem -ErrorAction Ignore -Recurse C:\Windows\SYSVOL\domain | Select-Obj
 Write-Host "=== ADCS Entries ==="
 Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=Public Key Services,CN=Services,CN=Configuration,"+$global:domain_Base) | foreach {
 	$obj = [PSCustomObject]@{
-		Name			   = "PKI: "+$_.DistinguishedName.ToString();
+		Name                       = "PKI: "+$_.DistinguishedName.ToString();
 		DistinguishedName          = $_.DistinguishedName.ToString();
-      		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
+		nTSecurityDescriptor       = $_.nTSecurityDescriptor;
 	}
 	setOwnerToDA $obj $testMode
 	removeWeakAcl_fromUsers $obj $testMode 'isAdUser'
@@ -638,13 +664,14 @@ Get-ADObject -Filter * -Property nTSecurityDescriptor -SearchBase ("CN=Public Ke
 			Write-Host -NoNewLine -ForegroundColor DarkCyan $comppath
 			Write-Host -NoNewLine -BackgroundColor DarkGreen "(PreviewMode ! NO CHANGE on ACL)"
 			Write-Host "."
+			logToCSV -User $comppath -AllowsUser $IdentityReference.ToString() -ACL $ace -Action "Bad ACL, remove not inherited ACL" -ActionDone "None - not implemented"
 			$global:count_ACL += 1
 		}
 	}
 }
 if( $global:checkVulnADCSTemplate -eq $true ){
 	$CA = Get-Adobject -SearchBase ("CN=Enrollment Services,CN=Public Key Services,CN=Services,CN=Configuration,"+$global:domain_Base) -Filter {objectClass -eq "pKIEnrollmentService"} -Properties *
-	$template = Get-ADObject -Property nTSecurityDescriptor -SearchBase ("CN=Public Key Services,CN=Services,CN=Configuration,"+$global:domain_Base) -Filter {objectClass -eq "pKICertificateTemplate"} -Properties * | foreach {
+	$template = Get-ADObject -SearchBase ("CN=Public Key Services,CN=Services,CN=Configuration,"+$global:domain_Base) -Filter {objectClass -eq "pKICertificateTemplate"} -Properties * | foreach {
 		$obj = [PSCustomObject]@{
 			DisplayName		 = "PKI: "+$_.DistinguishedName.ToString();
 			Name				= $_.Name.ToString();
@@ -689,6 +716,7 @@ if( $global:checkVulnADCSTemplate -eq $true ){
 					Write-Host -NoNewLine " "
 					Write-Host -NoNewLine -BackgroundColor DarkGreen "(PreviewMode ! NO CHANGE on ACL)"
 					Write-Host "."
+					logToCSV -User $comppath -AllowsUser $IdentityReference.ToString() -ACL $ace -Action "Bad ACL, remove not inherited ACL" -ActionDone "None - not implemented"
 					$global:count_ACL += 1
 				}
 			}
