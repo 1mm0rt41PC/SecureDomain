@@ -1,0 +1,1 @@
+Get-ADObject -LDAPFilter "(&(objectClass=attributeSchema)(searchFlags:1.2.840.113556.1.4.803:=128))" -SearchBase (Get-ADRootDSE).SchemaNamingContext -Properties * | select DistinguishedName,adminDisplayName,adminDescription | Export-csv -NoClobber -NoTypeInformation -Encoding ASCII csv.csv
