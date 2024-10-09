@@ -404,6 +404,18 @@ $param = @{
 			$row.Compliant = $row.Value -eq $row.Expected
 			$row
 		}
+		@(@('VBAWarnings',3),@('BlockContentExecutionFromInternet',1),@('PackagerPrompt',2),@('DisableAllActiveX',1),@('AllowDDE',0),@('MarkInternalAsUnsafe',0)) | %{
+			$key,$val = $_
+			$ret += Get-ItemProperty -Path "Registry::HKEY_USERS\*\Software\Microsoft\Office\*\*\*" -Name $key -ErrorAction SilentlyContinue | Select @{n="Key";e={"Office $key - $($_.PSPath)"}},@{n="Value";e={$_."$key"}},@{n="Expected";e={$val}},@{n="Compliant";e={$_."$key" -eq $val}}
+			$ret += Get-ItemProperty -Path "Registry::HKEY_USERS\*\Software\Policies\Microsoft\Office\*\*\*" -Name $key -ErrorAction SilentlyContinue | Select @{n="Key";e={"Office $key - $($_.PSPath)"}},@{n="Value";e={$_."$key"}},@{n="Expected";e={$val}},@{n="Compliant";e={$_."$key" -eq $val}}
+		}
+		$key='DontUpdateLinks'
+		$val=1
+		$ret += Get-ItemProperty -Path "Registry::HKEY_USERS\*\Software\Policies\Microsoft\Office\*\*\Options" -Name $key -ErrorAction SilentlyContinue | Select @{n="Key";e={"Office $key - $($_.PSPath)"}},@{n="Value";e={$_."$key"}},@{n="Expected";e={$val}},@{n="Compliant";e={$_."$key" -eq $val}}
+		$ret += Get-ItemProperty -Path "Registry::HKEY_USERS\*\Software\Microsoft\Office\*\*\Options" -Name $key -ErrorAction SilentlyContinue | Select @{n="Key";e={"Office $key - $($_.PSPath)"}},@{n="Value";e={$_."$key"}},@{n="Expected";e={$val}},@{n="Compliant";e={$_."$key" -eq $val}}
+		$ret += Get-ItemProperty -Path "Registry::HKEY_USERS\*\Software\Policies\Microsoft\Office\*\*\Options\WordMail" -Name $key -ErrorAction SilentlyContinue | Select @{n="Key";e={"Office $key - $($_.PSPath)"}},@{n="Value";e={$_."$key"}},@{n="Expected";e={$val}},@{n="Compliant";e={$_."$key" -eq $val}}
+		$ret += Get-ItemProperty -Path "Registry::HKEY_USERS\*\Software\Microsoft\Office\*\*\Options\WordMail" -Name $key -ErrorAction SilentlyContinue | Select @{n="Key";e={"Office $key - $($_.PSPath)"}},@{n="Value";e={$_."$key"}},@{n="Expected";e={$val}},@{n="Compliant";e={$_."$key" -eq $val}}
+
   		$row = $ColumnsList | Select *
     		$row.Key = "Printers PrivEsc | PrintNightmareVulnerability"
       		$row.Expected = 'Not vulnerable'
