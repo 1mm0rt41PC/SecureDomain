@@ -387,7 +387,8 @@ $param = @{
 			@('Printers PrivEsc','HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint', 'InForest', 0),
 			@('Printers PrivEsc','HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PointAndPrint', 'TrustedServers', 1),
 			@('Printers PrivEsc','HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint', 'PackagePointAndPrintOnly', 1),
-			@('Printers PrivEsc','HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint', 'PackagePointAndPrintServerList', 1)
+			@('Printers PrivEsc','HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Printers\PackagePointAndPrint', 'PackagePointAndPrintServerList', 1),
+			@('EventLog Process','HKLM\software\microsoft\windows\currentversion\policies\system\audit', 'ProcessCreationIncludeCmdLine_Enabled', 1)
 		) | %{
 			$row = $ColumnsList | Select *
 			$desc=$_[0]
@@ -437,10 +438,10 @@ $param = @{
     		$ret += $row
 		
 		@(
-			@("HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\*.exe","Debugger"),
-			@("HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\*\","Debugger"),
-			@("HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SilentProcessExit\*\","MonitorProcess"),
-			@("HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows NT\CurrentVersion\SilentProcessExit\*\","MonitorProcess")
+			@("Registry::HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\*.exe","Debugger"),
+			@("Registry::HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\*\","Debugger"),
+			@("Registry::HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SilentProcessExit\*\","MonitorProcess"),
+			@("Registry::HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows NT\CurrentVersion\SilentProcessExit\*\","MonitorProcess")
 		) | %{
 			$path=$_[0]
 			$key=$_[1]
@@ -563,7 +564,38 @@ $param = @{
 				$err = $_.Exception.Message
 				$ret += @($ColumnsList | Select * | %{$_.Key="Has WindowsFeature"; $_.Value=$err; $_.Expected='N/A'; $_.Compliant=$false; $_.Error=$err; $_})
 			}
-		}		
+		}
+		@(
+			"C:\unattend.xml",
+			"C:\Windows\Panther\Unattend.xml",
+			"C:\Windows\Panther\Unattend.xml.vmimport",
+			"C:\Windows\Panther\Unattend\Unattend.xml",
+			"C:\Windows\system32\sysprep.inf",
+			"C:\Windows\system32\sysprep\sysprep.xml"
+		) | %{
+			$file = $_
+			# Check if the file exists
+			$isFile = Test-Path $file
+			$ret += $ColumnsList | Select @{n="Key";e={"Unattend Present - $file"}},@{n="Value";e={$isFile}},@{n="Expected";e={$false}},@{n="Compliant";e={$isFile -eq $false}}
+			
+			try{
+				if( $isFile ){
+					$data = Get-Content $file
+					if( $data -Contains '*SENSITIVE*DATA*DELETED*' ){
+						$ret += $ColumnsList | Select @{n="Key";e={"Unattend contains password - $file"}},@{n="Value";e={$false}},@{n="Expected";e={$false}},@{n="Compliant";e={$true}}
+					}else{
+						if( $data -Contains 'cpassword' ){
+							$ret += $ColumnsList | Select @{n="Key";e={"Unattend contains password - $file"}},@{n="Value";e={"cpassword"}},@{n="Expected";e={$false}},@{n="Compliant";e={$false}}
+						}elseif( $data -Contains 'password' ){
+							$ret += $ColumnsList | Select @{n="Key";e={"Unattend contains password - $file"}},@{n="Value";e={"password field but not confident"}},@{n="Expected";e={$false}},@{n="Compliant";e={$false}}
+						}
+					}
+				}
+			}catch{
+				$err = $_.Exception.Message
+				$ret += $ColumnsList | Select @{n="Key";e={"Unattend contains password - $file"}},@{n="Value";e={$err}},@{n="Expected";e={$false}},@{n="Compliant";e={$false}},@{n="Error";e={$err}}
+			}
+		}
 		return $ret
 	}
 }
