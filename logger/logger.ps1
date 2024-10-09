@@ -18,6 +18,9 @@
 # along with this program; see the file COPYING. If not, write to the
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
+# Update: 2024-10-09 - Add WindowsFeature listing info
+# Update: 2024-10-09 - Add DC check
+# Update: 2024-10-09 - Add Windows type detection
 # Update: 2024-10-04 - Fix bad username in Services_*
 # Update: 2024-10-02 - Add support PrintNightmareVulnerability
 # Update: 2024-09-26 - Add support for RPD shadow
@@ -196,6 +199,9 @@ if( -not $syslogStorage.Contains('\\') -or $syslogStorage -eq '\\DC-SRV01-Exampl
 	logMsg -EntryType Warning -Event 2 -Message "Mode test => Reason: the script `$syslogStorage is not configured to point on valid SMB Share"
 }
 Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Files storage: $syslogStorage\*_${hostname}.csv"
+
+$global:isDomainController = $false
+$global:windowsRole = ''
 
 
 function runTest
@@ -530,6 +536,34 @@ $param = @{
 		}else {
 		    $ret += @($ColumnsList | Select * | %{$_.Key="GPO-Last-Update"; $_.Value=$err; $_.Expected='2h max'; $_.Compliant=$false; $_.Error="Path dosent exist $registryPath"; $_})
 		}
+		try{
+			$getRole = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\ProductOptions" -ErrorAction Stop
+			$global:windowsRole = @{
+				"WinNT"     = "WorkStation";
+				"LanmanNT"  = "Domain Controller";
+				"ServerNT"  = "Server";
+			}[$getRole.ProductType];
+			$global:isDomainController = $global:windowsRole -eq "Domain Controller"
+			$ret += @($ColumnsList | Select * | %{$_.Key="WindowsType"; $_.Value=$global:windowsRole; $_.Expected='N/A'; $_.Compliant=$true; $_})
+		}catch{
+			$err = $_.Exception.Message
+			$ret += @($ColumnsList | Select * | %{$_.Key="WindowsType"; $_.Value=$err; $_.Expected='N/A'; $_.Compliant=$false; $_.Error=$err; $_})
+		}
+		try{
+			$global:isLaptop = (Get-WmiObject -Class win32_systemenclosure -ErrorAction Stop | Where-Object { $_.chassistypes -eq 9 -or $_.chassistypes -eq 10 -or $_.chassistypes -eq 14}) -ne $null -And (Get-WmiObject -Class win32_battery -ErrorAction Stop).Name -ne ''
+			$ret += @($ColumnsList | Select * | %{$_.Key="WindowsLaptop"; $_.Value=$global:isLaptop; $_.Expected='N/A'; $_.Compliant=$true; $_})
+		}catch{
+			$err = $_.Exception.Message
+			$ret += @($ColumnsList | Select * | %{$_.Key="WindowsLaptop"; $_.Value=$err; $_.Expected='N/A'; $_.Compliant=$false; $_.Error=$err; $_})
+		}		
+		if( $global:windowsRole -eq 'Server' ){
+			try{
+				$ret += Get-WindowsFeature -ErrorAction Stop | Where-Object {$_. installstate -eq "installed"} | Select @{n="Key";e={"Has WindowsFeature - {0}" -f $_.Name}},@{n="Value";e={"Yes - Version {0}" -f "{0}.{1}.{2}" -f $_.AdditionalInfo.MajorVersion,$_.AdditionalInfo.MinorVersion,$_.AdditionalInfo.NumericId}},@{n="Compliant";e={'N/A'}}
+			}catch{
+				$err = $_.Exception.Message
+				$ret += @($ColumnsList | Select * | %{$_.Key="Has WindowsFeature"; $_.Value=$err; $_.Expected='N/A'; $_.Compliant=$false; $_.Error=$err; $_})
+			}
+		}		
 		return $ret
 	}
 }
@@ -548,7 +582,9 @@ $param = @{
 		return Get-LocalUser -ErrorAction Stop | Select Name,SID,AccountExpires,Enabled,PasswordChangeableDate,PasswordExpires,UserMayChangePassword,PasswordRequired,PasswordLastSet,LastLogon
 	}
 }
-runTest @param
+if( $global:isDomainController -eq $false ){
+	runTest @param
+}
 
 
 ###############################################################################
@@ -583,7 +619,9 @@ $param = @{
 		return $ret
 	}
 }
-runTest @param
+if( $global:isDomainController -eq $false ){
+	runTest @param
+}
 
 
 ###############################################################################
@@ -1259,6 +1297,30 @@ $param = @{
 	}
 }
 runTest @param
+
+
+###############################################################################
+# Monitor DC Replication
+if( $global:isDomainController -eq $true ){
+	$Output = 'dcdiag'
+	try{
+		dcdiag /e 2>&1 | Out-File -Encoding UTF8 "$syslogStorage\${Output}_${hostname}.log"
+	}catch {
+		$_.Exception.Message | Out-File -Encoding UTF8 "$syslogStorage\${Output}_${hostname}.log"
+	}
+	$Output = 'repadmin_replsummary'
+	try{
+		repadmin /replsummary 2>&1 | Out-File -Encoding UTF8 "$syslogStorage\${Output}_${hostname}.log"
+	}catch {
+		$_.Exception.Message | Out-File -Encoding UTF8 "$syslogStorage\${Output}_${hostname}.log"
+	}
+	$Output = 'repadmin_showrepl'
+	try{
+		repadmin /showrepl 2>&1 | Out-File -Encoding UTF8 "$syslogStorage\${Output}_${hostname}.log"
+	}catch {
+		$_.Exception.Message | Out-File -Encoding UTF8 "$syslogStorage\${Output}_${hostname}.log"
+	}
+}
 
 
 ###############################################################################
