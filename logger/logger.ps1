@@ -580,13 +580,13 @@ $param = @{
 			
 			try{
 				if( $isFile ){
-					$data = Get-Content $file
-					if( $data -Contains '*SENSITIVE*DATA*DELETED*' ){
+					$data = Get-Content $file | Out-String
+					if( $data.Contains('*SENSITIVE*DATA*DELETED*') ){
 						$ret += $ColumnsList | Select @{n="Key";e={"Unattend contains password - $file"}},@{n="Value";e={$false}},@{n="Expected";e={$false}},@{n="Compliant";e={$true}}
 					}else{
-						if( $data -Contains 'cpassword' ){
+						if( $data.Contains('cpassword') ){
 							$ret += $ColumnsList | Select @{n="Key";e={"Unattend contains password - $file"}},@{n="Value";e={"cpassword"}},@{n="Expected";e={$false}},@{n="Compliant";e={$false}}
-						}elseif( $data -Contains 'password' ){
+						}elseif( $data.Contains('password') ){
 							$ret += $ColumnsList | Select @{n="Key";e={"Unattend contains password - $file"}},@{n="Value";e={"password field but not confident"}},@{n="Expected";e={$false}},@{n="Compliant";e={$false}}
 						}
 					}
