@@ -18,6 +18,7 @@
 # along with this program; see the file COPYING. If not, write to the
 # Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
+# Update: 2024-10-15 - Add auto cleanup
 # Update: 2024-06-21 - Add auto cleanup
 #>
 <#
@@ -32,14 +33,15 @@ $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit
 Register-ScheduledTask -TaskName "$TaskName" -Trigger $trigger -User "S-1-5-18" -Action $action -RunLevel Highest -Settings $settings -Force
 #>
 
-$syslogStorage           = '\\DC-SRV01\syslog$'
-$syslogStorageTemp       = 'C:\logs\tmp_log'
-$syslogStorageFinale     = 'C:\logs\merge'
-$date                    = (Get-Date -Format "yyyyMMddHHmm")
-$logFolder               = "C:\Windows\logs\logger" # This script log
-$maxLogPowershellHistory = (Get-Date).AddDays(-30)# This script log
-$ErrorActionPreference   = 'Stop'
-$EventLogName            = 'Logger2Merger'
+$syslogStorage             = '\\DC-SRV01\syslog$'
+$syslogStorageTemp         = 'C:\logs\tmp_log'
+$syslogStorageFinale       = 'C:\logs\merge'
+$purgeMachineLogsOlderThan = (Get-Date).AddDays(-30)
+$date                      = (Get-Date -Format "yyyyMMddHHmm")
+$logFolder                 = "C:\Windows\logs\logger" # This script log
+$maxLogPowershellHistory   = (Get-Date).AddDays(-30)# This script log
+$ErrorActionPreference     = 'Stop'
+$EventLogName              = 'Logger2Merger'
 
 
 New-EventLog -LogName System -Source $EventLogName -ErrorAction SilentlyContinue;
@@ -85,10 +87,26 @@ if( $syslogStorage -eq '\\DC-SRV01\syslog$' -and -not (Test-Path $syslogStorage)
 mkdir -Force $syslogStorageTemp > $null
 mkdir -Force $syslogStorageFinale > $null
 
+Write-Host -ForegroundColor White -BackgroundColor DarkBlue "INFO: Files Source          : $syslogStorage\*.csv"
+Write-Host -ForegroundColor White -BackgroundColor DarkBlue "INFO: Files Merging history : $syslogStorageTemp"
+Write-Host -ForegroundColor White -BackgroundColor DarkBlue "INFO: Files Merging output  : $syslogStorageFinale"
+Write-Host -ForegroundColor White -BackgroundColor DarkBlue "INFO: Purge all computers logs older than : $purgeMachineLogsOlderThan"
+
+
+Write-Host "======================================================================================="
+Write-Host -ForegroundColor White -BackgroundColor DarkBlue "MOVING Files from         : $syslogStorage\*.csv"
+Write-Host -ForegroundColor White -BackgroundColor DarkBlue "To: $syslogStorageTemp"
+Move-Item -ErrorAction SilentlyContinue -Force -Path "$syslogStorage\*.csv" -Destination "$syslogStorageTemp\"
+
+Write-Host "======================================================================================="
+Write-Host -ForegroundColor White -BackgroundColor DarkBlue "PURGING all computers logs older than : $purgeMachineLogsOlderThan"
+Get-ChildItem -ErrorAction SilentlyContinue -Path $syslogStorageTemp -Force | Where-Object { !$_.PSIsContainer -and $_.CreationTime -lt $purgeMachineLogsOlderThan } | Remove-Item -ErrorAction Continue -Force
+
+Write-Host "======================================================================================="
+Write-Host -ForegroundColor White -BackgroundColor DarkBlue "MERGING"
 Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Files Source        : $syslogStorage"
 Write-Host -ForegroundColor White -BackgroundColor DarkBlue "Files Merging output: $syslogStorageFinale"
 
-Move-Item -ErrorAction SilentlyContinue -Force -Path "$syslogStorage\*.csv" -Destination "$syslogStorageTemp\"
 $work = Get-Item -Path "$syslogStorageTemp\*.csv"
 
 if( $work.Count -gt 0 ){
@@ -108,7 +126,9 @@ if( $work.Count -gt 0 ){
 	Write-Host -ForegroundColor White -BackgroundColor DarkRed "No work todo... EXIT"
 }
 
+Write-Host "======================================================================================="
 # Delete files older than the $maxLogPowershellHistory.
+Write-Host -ForegroundColor White -BackgroundColor DarkBlue "PURGING all logs from this script logs older than : $maxLogPowershellHistory"
 Get-ChildItem -ErrorAction SilentlyContinue -Path $logFolder -Force | Where-Object { !$_.PSIsContainer -and $_.CreationTime -lt $maxLogPowershellHistory } | Remove-Item -ErrorAction Continue -Force
 
 # Log the activity
